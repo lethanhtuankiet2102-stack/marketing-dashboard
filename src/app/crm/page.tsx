@@ -80,9 +80,9 @@ export default function CrmPage() {
   const urlView = searchParams.get('view') || '';
   const urlSort = searchParams.get('sort') || '';
 
-  const [createOpen, setTạo leadOpen] = useState(false);
-  const [createSubmitting, setTạo leadSubmitting] = useState(false);
-  const [createForm, setTạo leadForm] = useState({
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [createForm, setCreateForm] = useState({
     first_name: '',
     last_name: '',
     title: '',
@@ -195,7 +195,7 @@ export default function CrmPage() {
     .filter(l => l.next_action_at)
     .sort((a, b) => new Date(a.next_action_at as string).getTime() - new Date(b.next_action_at as string).getTime());
 
-  async function markTaskHoàn tất(leadId: string) {
+  async function markTaskDone(leadId: string) {
     if (!canEdit) return;
     try {
       await fetch('/api/crm', {
@@ -214,10 +214,10 @@ export default function CrmPage() {
   }, []);
   const canEdit = role === 'admin' || role === 'editor';
 
-  async function submitTạo leadLead(e: React.FormEvent) {
+  async function submitCreateLead(e: React.FormEvent) {
     e.preventDefault();
     if (!canEdit) return;
-    setTạo leadSubmitting(true);
+    setCreateSubmitting(true);
     try {
       const payload: Record<string, unknown> = {
         first_name: createForm.first_name || null,
@@ -246,8 +246,8 @@ export default function CrmPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create lead');
 
-      setTạo leadOpen(false);
-      setTạo leadForm({
+      setCreateOpen(false);
+      setCreateForm({
         first_name: '',
         last_name: '',
         title: '',
@@ -268,7 +268,7 @@ export default function CrmPage() {
     } catch {
       // ignore
     } finally {
-      setTạo leadSubmitting(false);
+      setCreateSubmitting(false);
     }
   }
 
@@ -296,43 +296,43 @@ export default function CrmPage() {
             type="button"
             aria-label="Close"
             className="absolute inset-0 bg-black/40"
-            onClick={() => setTạo leadOpen(false)}
+            onClick={() => setCreateOpen(false)}
           />
           <div className="panel relative w-full max-w-xl" role="dialog" aria-modal="true" aria-labelledby="crm-add-lead-title">
             <div className="panel-header flex items-center justify-between">
               <h2 id="crm-add-lead-title" className="text-sm font-medium">Thêm lead</h2>
-              <button type="button" aria-label="Close add lead" onClick={() => setTạo leadOpen(false)} className="text-muted-foreground hover:text-foreground">
+              <button type="button" aria-label="Close add lead" onClick={() => setCreateOpen(false)} className="text-muted-foreground hover:text-foreground">
                 <X size={16} />
               </button>
             </div>
-            <form onSubmit={submitTạo leadLead} className="panel-body space-y-3">
+            <form onSubmit={submitCreateLead} className="panel-body space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input name="first_name" aria-label="Tên" autoComplete="given-name" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Tên" value={createForm.first_name} onChange={(e) => setTạo leadForm(v => ({ ...v, first_name: e.target.value }))} />
-                <input name="last_name" aria-label="Họ" autoComplete="family-name" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Họ" value={createForm.last_name} onChange={(e) => setTạo leadForm(v => ({ ...v, last_name: e.target.value }))} />
-                <input name="title" aria-label="Chức danh" autoComplete="organization-title" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Chức danh" value={createForm.title} onChange={(e) => setTạo leadForm(v => ({ ...v, title: e.target.value }))} />
-                <input name="company" aria-label="Doanh nghiệp" autoComplete="organization" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Doanh nghiệp" value={createForm.company} onChange={(e) => setTạo leadForm(v => ({ ...v, company: e.target.value }))} />
-                <input name="email" aria-label="Email" autoComplete="email" type="email" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Email" value={createForm.email} onChange={(e) => setTạo leadForm(v => ({ ...v, email: e.target.value }))} />
-                <input name="linkedin_url" aria-label="LinkedIn URL" autoComplete="url" type="url" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="LinkedIn URL" value={createForm.linkedin_url} onChange={(e) => setTạo leadForm(v => ({ ...v, linkedin_url: e.target.value }))} />
-                <input name="source" aria-label="Nguồn lead" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Nguồn lead" value={createForm.source} onChange={(e) => setTạo leadForm(v => ({ ...v, source: e.target.value }))} />
-                <input name="industry_segment" aria-label="Ngành" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Ngành" value={createForm.industry_segment} onChange={(e) => setTạo leadForm(v => ({ ...v, industry_segment: e.target.value }))} />
-                <input name="company_size" aria-label="Doanh nghiệp size" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Doanh nghiệp size" value={createForm.company_size} onChange={(e) => setTạo leadForm(v => ({ ...v, company_size: e.target.value }))} />
-                <input name="score" aria-label="Score" inputMode="numeric" type="number" min={0} max={100} className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Điểm lead (0-100)" value={createForm.score} onChange={(e) => setTạo leadForm(v => ({ ...v, score: e.target.value }))} />
-                <select name="tier" aria-label="Tier" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" value={createForm.tier} onChange={(e) => setTạo leadForm(v => ({ ...v, tier: e.target.value }))}>
+                <input name="first_name" aria-label="First name" autoComplete="given-name" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Tên" value={createForm.first_name} onChange={(e) => setCreateForm(v => ({ ...v, first_name: e.target.value }))} />
+                <input name="last_name" aria-label="Last name" autoComplete="family-name" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Họ" value={createForm.last_name} onChange={(e) => setCreateForm(v => ({ ...v, last_name: e.target.value }))} />
+                <input name="title" aria-label="Title" autoComplete="organization-title" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Chức danh" value={createForm.title} onChange={(e) => setCreateForm(v => ({ ...v, title: e.target.value }))} />
+                <input name="company" aria-label="Company" autoComplete="organization" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Doanh nghiệp" value={createForm.company} onChange={(e) => setCreateForm(v => ({ ...v, company: e.target.value }))} />
+                <input name="email" aria-label="Email" autoComplete="email" type="email" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Email" value={createForm.email} onChange={(e) => setCreateForm(v => ({ ...v, email: e.target.value }))} />
+                <input name="linkedin_url" aria-label="LinkedIn URL" autoComplete="url" type="url" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="LinkedIn URL" value={createForm.linkedin_url} onChange={(e) => setCreateForm(v => ({ ...v, linkedin_url: e.target.value }))} />
+                <input name="source" aria-label="Source" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Nguồn lead" value={createForm.source} onChange={(e) => setCreateForm(v => ({ ...v, source: e.target.value }))} />
+                <input name="industry_segment" aria-label="Industry segment" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Ngành" value={createForm.industry_segment} onChange={(e) => setCreateForm(v => ({ ...v, industry_segment: e.target.value }))} />
+                <input name="company_size" aria-label="Company size" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Quy mô doanh nghiệp" value={createForm.company_size} onChange={(e) => setCreateForm(v => ({ ...v, company_size: e.target.value }))} />
+                <input name="score" aria-label="Score" inputMode="numeric" type="number" min={0} max={100} className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Điểm lead (0-100)" value={createForm.score} onChange={(e) => setCreateForm(v => ({ ...v, score: e.target.value }))} />
+                <select name="tier" aria-label="Tier" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" value={createForm.tier} onChange={(e) => setCreateForm(v => ({ ...v, tier: e.target.value }))}>
                   <option value="">Nhóm lead (không bắt buộc)</option>
                   <option value="A">A</option>
                   <option value="B">B</option>
                   <option value="C">C</option>
                 </select>
-                <select name="status" aria-label="Stage" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" value={createForm.status} onChange={(e) => setTạo leadForm(v => ({ ...v, status: e.target.value }))}>
+                <select name="status" aria-label="Stage" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" value={createForm.status} onChange={(e) => setCreateForm(v => ({ ...v, status: e.target.value }))}>
                   {['new','validated','approved','contacted','replied','interested','booked','qualified','rejected','disqualified'].map(s => (
                     <option key={s} value={s}>{STATUS_LABELS[s] || s}</option>
                   ))}
                 </select>
-                <input name="next_action_at" aria-label="Next action date" type="date" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" value={createForm.next_action_at} onChange={(e) => setTạo leadForm(v => ({ ...v, next_action_at: e.target.value }))} />
+                <input name="next_action_at" aria-label="Next action date" type="date" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" value={createForm.next_action_at} onChange={(e) => setCreateForm(v => ({ ...v, next_action_at: e.target.value }))} />
               </div>
-              <textarea name="notes" aria-label="Ghi chú" className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2" rows={3} placeholder="Ghi chú" value={createForm.notes} onChange={(e) => setTạo leadForm(v => ({ ...v, notes: e.target.value }))} />
+              <textarea name="notes" aria-label="Ghi chú" className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2" rows={3} placeholder="Ghi chú" value={createForm.notes} onChange={(e) => setCreateForm(v => ({ ...v, notes: e.target.value }))} />
               <div className="flex items-center justify-end gap-2">
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setTạo leadOpen(false)}>Hủy</button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCreateOpen(false)}>Hủy</button>
                 <button type="submit" disabled={createSubmitting} className="btn btn-primary btn-sm">
                   {createSubmitting ? 'Đang tạo...' : 'Tạo lead'}
                 </button>
@@ -347,14 +347,14 @@ export default function CrmPage() {
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">Khách hàng & Lead</h1>
           {canEdit && (
-            <button className="btn btn-primary btn-sm" onClick={() => setTạo leadOpen(true)}>
+            <button className="btn btn-primary btn-sm" onClick={() => setCreateOpen(true)}>
               Thêm lead
             </button>
           )}
         </div>
         {data?.summary && (
           <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-            <span><strong className="text-foreground">{data.summary.total}</strong> leads</span>
+            <span><strong className="text-foreground">{data.summary.total}</strong> lead</span>
             <span>điểm TB <strong className="text-foreground">{data.summary.avg_score}</strong></span>
             {data.summary.tier_breakdown.map(t => (
               <span key={t.tier} className={`badge border ${TIER_COLORS[t.tier] || ''}`}>
@@ -487,7 +487,7 @@ export default function CrmPage() {
             className={`px-2.5 py-2 text-sm transition-colors ${
               viewMode === 'list' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'
             }`}
-            title="List view"
+            title="Dạng danh sách"
           >
             <LayoutList size={14} />
           </button>
@@ -498,7 +498,7 @@ export default function CrmPage() {
             className={`px-2.5 py-2 text-sm transition-colors ${
               viewMode === 'kanban' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'
             }`}
-            title="Board view"
+            title="Dạng Kanban"
           >
             <Kanban size={14} />
           </button>
@@ -510,7 +510,7 @@ export default function CrmPage() {
             className="btn btn-ghost btn-sm"
           >
             <ArrowUpDown size={12} />
-            {sortField === 'score' ? 'Score' : 'Date'}
+            {sortField === 'score' ? 'Điểm' : 'Ngày tạo'}
           </button>
         )}
         {(stageFilter || tierFilter || search) && (
@@ -521,7 +521,7 @@ export default function CrmPage() {
         </div>
       </div>
 
-      {/* Việc cần xử lý Due */}
+      {/* Tasks Due */}
       {tasksDue.length > 0 && (
         <div className="panel">
           <div className="panel-header flex items-center justify-between">
@@ -587,11 +587,11 @@ export default function CrmPage() {
                               {timeAgo(task.next_action_at as string)}
                             </span>
                             <button
-                              onClick={() => markTaskHoàn tất(task.id)}
+                              onClick={() => markTaskDone(task.id)}
                               disabled={!canEdit}
                               className="text-[10px] text-primary hover:underline disabled:opacity-50"
                             >
-                              Hoàn tất
+                              Done
                             </button>
                           </div>
                         </div>
@@ -932,7 +932,7 @@ function KanbanColumn({
 function KanbanCard({ lead, selected, onSelect, nowMs, canEdit, slaStaleDays, slaNewDays }: { lead: Lead; selected: boolean; onSelect: () => void; nowMs: number | null; canEdit: boolean; slaStaleDays: number; slaNewDays: number }) {
   const isPaused = (lead as { pause_outreach?: number }).pause_outreach === 1;
   const missingEmail = !lead.email;
-  const missingDoanh nghiệp = !lead.company;
+  const missingCompany = !lead.company;
   const missingIndustry = !lead.industry_segment;
   const staleDays = (nowMs != null && lead.last_touch_at)
     ? Math.floor((nowMs - new Date(lead.last_touch_at).getTime()) / (1000 * 60 * 60 * 24))
@@ -1004,7 +1004,7 @@ function KanbanCard({ lead, selected, onSelect, nowMs, canEdit, slaStaleDays, sl
             next {timeAgo(lead.next_action_at)}
           </span>
         )}
-        {(missingEmail || missingDoanh nghiệp || missingIndustry) && (
+        {(missingEmail || missingCompany || missingIndustry) && (
           <span className="px-1.5 py-0.5 rounded-full bg-warning/15 text-warning flex items-center gap-1">
             <AlertCircle size={9} /> missing
           </span>
@@ -1036,7 +1036,7 @@ function LeadRow({ lead, selected, onClick, nowMs, slaStaleDays, slaNewDays }: {
   const Icon = STAGE_ICONS[lead.status] || CircleDot;
   const isPaused = (lead as { pause_outreach?: number }).pause_outreach === 1;
   const missingEmail = !lead.email;
-  const missingDoanh nghiệp = !lead.company;
+  const missingCompany = !lead.company;
   const missingIndustry = !lead.industry_segment;
   const staleDays = (nowMs != null && lead.last_touch_at)
     ? Math.floor((nowMs - new Date(lead.last_touch_at).getTime()) / (1000 * 60 * 60 * 24))
@@ -1070,7 +1070,7 @@ function LeadRow({ lead, selected, onClick, nowMs, slaStaleDays, slaNewDays }: {
           )}
           {isPaused && (
             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-warning/15 text-warning border border-warning/30">
-              tạm dừng
+              paused
             </span>
           )}
         </div>
@@ -1111,11 +1111,11 @@ function LeadRow({ lead, selected, onClick, nowMs, slaStaleDays, slaNewDays }: {
               next {timeAgo(lead.next_action_at)}
             </span>
           )}
-          {(missingEmail || missingDoanh nghiệp || missingIndustry) && (
+          {(missingEmail || missingCompany || missingIndustry) && (
             <span className="px-2 py-0.5 rounded-full bg-warning/15 text-warning flex items-center gap-1">
               <AlertCircle size={10} /> missing {[
                 missingEmail ? 'email' : null,
-                missingDoanh nghiệp ? 'company' : null,
+                missingCompany ? 'company' : null,
                 missingIndustry ? 'industry' : null,
               ].filter(Boolean).join(', ')}
             </span>
@@ -1136,8 +1136,8 @@ function LeadRow({ lead, selected, onClick, nowMs, slaStaleDays, slaNewDays }: {
           href={`/crm/${lead.id}`}
           onClick={(e) => e.stopPropagation()}
           className="text-muted-foreground hover:text-foreground"
-          title="Open record"
-          aria-label="Open record"
+          title="Mở hồ sơ"
+          aria-label="Mở hồ sơ"
         >
           <ExternalLink size={14} />
         </Link>
