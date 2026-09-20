@@ -2,15 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Settings, Database, Shield, Info, ExternalLink,
-  RefreshCw, Trash2, Users, UserPlus, KeyRound, BrainCircuit, BellRing,
+  Settings, Cơ sở dữ liệu, Shield, Info, ExternalLink,
+  Làm mớiCw, Trash2, Người dùng, UserPlus, KeyRound, BrainCircuit, BellRing,
 } from 'lucide-react';
 import { toast } from '@/components/ui/toast';
 import { timeAgo } from '@/lib/utils';
-import { getRoleMatrix } from '@/lib/rbac';
+import { getVai tròMatrix } from '@/lib/rbac';
 import pkg from '../../../package.json';
 
-interface SyncInfo {
+interface Đồng bộInfo {
   db_path: string;
   state_dir: string;
   db_size_mb: number;
@@ -36,13 +36,13 @@ interface SyncInfo {
   seed_count: number;
 }
 
-type Role = 'admin' | 'editor' | 'viewer';
+type Vai trò = 'admin' | 'editor' | 'viewer';
 type SettingsTab = 'general' | 'memory' | 'access' | 'about';
 
 interface UserRecord {
   id: number;
   username: string;
-  role: Role;
+  role: Vai trò;
   created_at: string;
   email?: string | null;
   auth_provider?: string | null;
@@ -53,7 +53,7 @@ interface LoginRequestRecord {
   email: string;
   google_sub?: string | null;
   status: 'pending' | 'approved' | 'denied';
-  requested_role: Role;
+  requested_role: Vai trò;
   attempts: number;
   last_error?: string | null;
   last_attempt_at: string;
@@ -63,7 +63,7 @@ interface LoginRequestRecord {
 }
 
 interface MeResponse {
-  user?: { id: number; username: string; role: Role };
+  user?: { id: number; username: string; role: Vai trò };
 }
 
 interface HermesInstance {
@@ -108,24 +108,24 @@ interface MemoryEffectPayload {
 }
 
 export default function SettingsPage() {
-  const dashboardVersion = pkg.version || 'dev';
-  const roleMatrix = getRoleMatrix();
+  const dashboardPhiên bản = pkg.version || 'dev';
+  const roleMatrix = getVai tròMatrix();
   const [instances, setInstances] = useState<HermesInstance[]>([]);
-  const [syncInfo, setSyncInfo] = useState<SyncInfo | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [clearing, setClearing] = useState(false);
+  const [syncInfo, setĐồng bộInfo] = useState<Đồng bộInfo | null>(null);
+  const [syncing, setĐồng bộing] = useState(false);
+  const [clearing, setXóaing] = useState(false);
   const [currentUser, setCurrentUser] = useState<MeResponse['user'] | null>(null);
-  const [users, setUsers] = useState<UserRecord[]>([]);
+  const [users, setNgười dùng] = useState<UserRecord[]>([]);
   const [loginRequests, setLoginRequests] = useState<LoginRequestRecord[]>([]);
   const [userLoading, setUserLoading] = useState(false);
   const [requestLoading, setRequestLoading] = useState(false);
-  const [createUsername, setCreateUsername] = useState('');
-  const [createPassword, setCreatePassword] = useState('');
-  const [createRole, setCreateRole] = useState<Role>('editor');
+  const [createTên đăng nhập, setCreateTên đăng nhập] = useState('');
+  const [createMật khẩu, setCreateMật khẩu] = useState('');
+  const [createVai trò, setCreateVai trò] = useState<Vai trò>('editor');
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [createSubmitting, setCreateSubmitting] = useState(false);
-  const [passwordDrafts, setPasswordDrafts] = useState<Record<number, string>>({});
-  const [requestRoleDrafts, setRequestRoleDrafts] = useState<Record<string, Role>>({});
+  const [passwordDrafts, setMật khẩuDrafts] = useState<Record<number, string>>({});
+  const [requestVai tròDrafts, setRequestVai tròDrafts] = useState<Record<string, Vai trò>>({});
   const [policies, setPolicies] = useState<Record<InstanceId, MemoryPolicy | null>>({});
   const [savingPolicy, setSavingPolicy] = useState<Record<InstanceId, boolean>>({});
   const [alertPolicies, setAlertPolicies] = useState<Record<InstanceId, AlertPolicy | null>>({});
@@ -136,7 +136,7 @@ export default function SettingsPage() {
     let alive = true;
 
     (async () => {
-      fetch('/api/settings').then(r => r.json()).then(setSyncInfo).catch(() => {});
+      fetch('/api/settings').then(r => r.json()).then(setĐồng bộInfo).catch(() => {});
 
       // Discover configured OpenClaw instances from the server so the dashboard
       // can be used as a template across different deployments.
@@ -202,14 +202,14 @@ export default function SettingsPage() {
       .catch(() => setCurrentUser(null));
   }, []);
 
-  async function loadUsers() {
+  async function loadNgười dùng() {
     if (currentUser?.role !== 'admin') return;
     setUserLoading(true);
     try {
       const res = await fetch('/api/users', { cache: 'no-store' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load users');
-      setUsers(Array.isArray(data.users) ? data.users : []);
+      setNgười dùng(Array.isArray(data.users) ? data.users : []);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -226,11 +226,11 @@ export default function SettingsPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to load login requests');
       const requests = Array.isArray(data.requests) ? data.requests : [];
       setLoginRequests(requests);
-      const nextDrafts: Record<string, Role> = {};
+      const nextDrafts: Record<string, Vai trò> = {};
       requests.forEach((req: LoginRequestRecord) => {
         nextDrafts[req.email] = req.requested_role || 'viewer';
       });
-      setRequestRoleDrafts(nextDrafts);
+      setRequestVai tròDrafts(nextDrafts);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -239,37 +239,37 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    loadUsers().catch(() => {});
+    loadNgười dùng().catch(() => {});
     loadLoginRequests().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.role]);
 
-  async function triggerSync() {
-    setSyncing(true);
+  async function triggerĐồng bộ() {
+    setĐồng bộing(true);
     try {
       await fetch('/api/sync');
-      toast.success('Sync completed');
-      // Refresh info
+      toast.success('Đồng bộ completed');
+      // Làm mới info
       const info = await fetch('/api/settings').then(r => r.json());
-      setSyncInfo(info);
+      setĐồng bộInfo(info);
     } catch {
-      toast.error('Sync failed');
+      toast.error('Đồng bộ failed');
     }
-    setSyncing(false);
+    setĐồng bộing(false);
   }
 
   async function clearSeeds() {
     if (!confirm('Remove all seed data? Real data will be preserved.')) return;
-    setClearing(true);
+    setXóaing(true);
     try {
       await fetch('/api/seed', { method: 'DELETE' });
       toast.success('Seed data cleared');
       const info = await fetch('/api/settings').then(r => r.json());
-      setSyncInfo(info);
+      setĐồng bộInfo(info);
     } catch {
       toast.error('Failed to clear seeds');
     }
-    setClearing(false);
+    setXóaing(false);
   }
 
   async function createUserRecord(e: React.FormEvent) {
@@ -280,18 +280,18 @@ export default function SettingsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: createUsername,
-          password: createPassword,
-          role: createRole,
+          username: createTên đăng nhập,
+          password: createMật khẩu,
+          role: createVai trò,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create user');
       toast.success('User created');
-      setCreateUsername('');
-      setCreatePassword('');
-      setCreateRole('editor');
-      await loadUsers();
+      setCreateTên đăng nhập('');
+      setCreateMật khẩu('');
+      setCreateVai trò('editor');
+      await loadNgười dùng();
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -299,7 +299,7 @@ export default function SettingsPage() {
     }
   }
 
-  async function updateRole(id: number, role: Role) {
+  async function updateVai trò(id: number, role: Vai trò) {
     try {
       const res = await fetch('/api/users', {
         method: 'PATCH',
@@ -308,14 +308,14 @@ export default function SettingsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update role');
-      toast.success('Role updated');
-      await loadUsers();
+      toast.success('Vai trò updated');
+      await loadNgười dùng();
     } catch (err) {
       toast.error((err as Error).message);
     }
   }
 
-  async function updatePassword(id: number) {
+  async function updateMật khẩu(id: number) {
     const password = (passwordDrafts[id] || '').trim();
     if (!password) return;
     try {
@@ -326,8 +326,8 @@ export default function SettingsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update password');
-      setPasswordDrafts((prev) => ({ ...prev, [id]: '' }));
-      toast.success('Password updated');
+      setMật khẩuDrafts((prev) => ({ ...prev, [id]: '' }));
+      toast.success('Mật khẩu updated');
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -344,7 +344,7 @@ export default function SettingsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to delete user');
       toast.success('User deleted');
-      await loadUsers();
+      await loadNgười dùng();
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -352,7 +352,7 @@ export default function SettingsPage() {
 
   async function reviewLoginRequest(email: string, action: 'approve' | 'deny') {
     try {
-      const role = requestRoleDrafts[email] || 'viewer';
+      const role = requestVai tròDrafts[email] || 'viewer';
       const res = await fetch('/api/users/requests', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -360,8 +360,8 @@ export default function SettingsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Failed to ${action} request`);
-      toast.success(action === 'approve' ? 'Access approved' : 'Access denied');
-      await Promise.all([loadLoginRequests(), loadUsers()]);
+      toast.success(action === 'approve' ? 'Phân quyền approved' : 'Phân quyền denied');
+      await Promise.all([loadLoginRequests(), loadNgười dùng()]);
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -423,10 +423,10 @@ export default function SettingsPage() {
         <div className="panel-body">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
-              { key: 'general', label: 'General' },
+              { key: 'general', label: 'Tổng quan' },
               { key: 'memory', label: 'Memory' },
-              { key: 'access', label: 'Access' },
-              { key: 'about', label: 'About' },
+              { key: 'access', label: 'Phân quyền' },
+              { key: 'about', label: 'Thông tin' },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -445,12 +445,12 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Database Info */}
+      {/* Cơ sở dữ liệu Info */}
       {activeTab === 'general' && (
       <>
       <div className="panel p-5 space-y-4">
         <h2 className="text-sm font-medium flex items-center gap-2">
-          <Database size={14} className="text-primary" /> Database
+          <Cơ sở dữ liệu size={14} className="text-primary" /> Cơ sở dữ liệu
         </h2>
 
         {syncInfo ? (
@@ -469,7 +469,7 @@ export default function SettingsPage() {
                 </code>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground block mb-0.5">Database Size</span>
+                <span className="text-xs text-muted-foreground block mb-0.5">Cơ sở dữ liệu Size</span>
                 <span className="font-mono">{syncInfo.db_size_mb.toFixed(2)} MB</span>
               </div>
               <div>
@@ -604,10 +604,10 @@ export default function SettingsPage() {
 
       {activeTab === 'general' && (
       <>
-      {/* Sync Controls */}
+      {/* Đồng bộ Controls */}
       <div className="panel p-5 space-y-4">
         <h2 className="text-sm font-medium flex items-center gap-2">
-          <RefreshCw size={14} className="text-success" /> Sync
+          <Làm mớiCw size={14} className="text-success" /> Đồng bộ
         </h2>
         <p className="text-xs text-muted-foreground">
           The dashboard syncs 14 JSON state files from the agent workspace into SQLite every 30 seconds.
@@ -615,7 +615,7 @@ export default function SettingsPage() {
         {syncInfo?.sync_health && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <div className="rounded-lg border border-border/40 p-3">
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Last Sync</div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Last Đồng bộ</div>
               <div className="mt-1 flex items-center gap-2">
                 <span className="font-mono">
                   {syncInfo.sync_health.last_sync_at ? timeAgo(syncInfo.sync_health.last_sync_at) : '—'}
@@ -652,12 +652,12 @@ export default function SettingsPage() {
         )}
         <div className="flex gap-3">
           <button
-            onClick={triggerSync}
+            onClick={triggerĐồng bộ}
             disabled={syncing}
             className="btn btn-primary text-sm flex items-center gap-2"
           >
-            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-            {syncing ? 'Syncing...' : 'Sync Now'}
+            <Làm mớiCw size={14} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? 'Đồng bộing...' : 'Đồng bộ Now'}
           </button>
           <button
             onClick={clearSeeds}
@@ -665,15 +665,15 @@ export default function SettingsPage() {
             className="btn btn-destructive text-sm flex items-center gap-2"
           >
             <Trash2 size={14} />
-            {clearing ? 'Clearing...' : 'Clear Seed Data'}
+            {clearing ? 'Xóaing...' : 'Xóa Seed Data'}
           </button>
         </div>
       </div>
 
-      {/* Sync File Diagnostics */}
+      {/* Đồng bộ File Diagnostics */}
       <div className="panel p-5 space-y-4">
         <h2 className="text-sm font-medium flex items-center gap-2">
-          <Database size={14} className="text-info" /> Sync Diagnostics
+          <Cơ sở dữ liệu size={14} className="text-info" /> Đồng bộ Diagnostics
         </h2>
         {syncInfo?.sync_files && syncInfo.sync_files.length > 0 ? (
           <div className="overflow-auto">
@@ -812,7 +812,7 @@ export default function SettingsPage() {
                       />
                     </label>
                     <label className="space-y-1 sm:col-span-2">
-                      <span className="text-xs text-muted-foreground">Never-Accessed Ratio Threshold</span>
+                      <span className="text-xs text-muted-foreground">Never-Phân quyềned Ratio Threshold</span>
                       <input
                         type="number"
                         min={0}
@@ -876,7 +876,7 @@ export default function SettingsPage() {
                         <MetricDelta label="Weak Agents" value={memoryEffect.deltas.weak_agents} inverse />
                         <MetricDelta label="Hot Memory" value={memoryEffect.deltas.hot_memory} />
                         <MetricDelta
-                          label="Never Accessed Ratio"
+                          label="Never Phân quyềned Ratio"
                           value={memoryEffect.deltas.never_accessed_ratio}
                           percent
                           inverse
@@ -893,15 +893,15 @@ export default function SettingsPage() {
       </>
       )}
 
-      {/* Users & Roles */}
+      {/* Người dùng & Vai tròs */}
       {activeTab === 'access' && (
       <div className="panel p-5 space-y-4">
         <h2 className="text-sm font-medium flex items-center gap-2">
-          <Users size={14} className="text-primary" /> Users & Roles
+          <Người dùng size={14} className="text-primary" /> Người dùng & Vai tròs
         </h2>
         {currentUser?.role !== 'admin' ? (
           <p className="text-xs text-muted-foreground">
-            Admin access required to manage users and roles.
+            Quản trị viên access required to manage users and roles.
           </p>
         ) : (
           <>
@@ -916,7 +916,7 @@ export default function SettingsPage() {
                   onClick={() => loadLoginRequests()}
                   disabled={requestLoading}
                 >
-                  {requestLoading ? 'Refreshing...' : 'Refresh'}
+                  {requestLoading ? 'Làm mớiing...' : 'Làm mới'}
                 </button>
               </div>
 
@@ -946,8 +946,8 @@ export default function SettingsPage() {
                       </div>
                       <div className="flex items-center flex-wrap gap-2">
                         <select
-                          value={requestRoleDrafts[req.email] || req.requested_role}
-                          onChange={(e) => setRequestRoleDrafts((prev) => ({ ...prev, [req.email]: e.target.value as Role }))}
+                          value={requestVai tròDrafts[req.email] || req.requested_role}
+                          onChange={(e) => setRequestVai tròDrafts((prev) => ({ ...prev, [req.email]: e.target.value as Vai trò }))}
                           className="px-2 py-1 rounded-md border border-border bg-background text-xs"
                         >
                           <option value="admin">admin</option>
@@ -976,26 +976,26 @@ export default function SettingsPage() {
             </div>
 
             <div className="rounded-xl border border-border/40 p-4 space-y-3 bg-muted/10">
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Create User</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tạo người dùng</div>
               <form onSubmit={createUserRecord} className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                 <input
-                  value={createUsername}
-                  onChange={(e) => setCreateUsername(e.target.value)}
+                  value={createTên đăng nhập}
+                  onChange={(e) => setCreateTên đăng nhập(e.target.value)}
                   className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
                   placeholder="username"
                   required
                 />
                 <input
-                  value={createPassword}
-                  onChange={(e) => setCreatePassword(e.target.value)}
+                  value={createMật khẩu}
+                  onChange={(e) => setCreateMật khẩu(e.target.value)}
                   className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
                   placeholder="password (min 10 chars)"
                   type="password"
                   required
                 />
                 <select
-                  value={createRole}
-                  onChange={(e) => setCreateRole(e.target.value as Role)}
+                  value={createVai trò}
+                  onChange={(e) => setCreateVai trò(e.target.value as Vai trò)}
                   className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
                 >
                   <option value="admin">admin</option>
@@ -1003,13 +1003,13 @@ export default function SettingsPage() {
                   <option value="viewer">viewer</option>
                 </select>
                 <button type="submit" disabled={createSubmitting} className="btn btn-primary text-sm flex items-center justify-center gap-2">
-                  <UserPlus size={14} /> {createSubmitting ? 'Creating...' : 'Create User'}
+                  <UserPlus size={14} /> {createSubmitting ? 'Creating...' : 'Tạo người dùng'}
                 </button>
               </form>
             </div>
 
             <div className="rounded-xl border border-border/40 p-4 space-y-3 bg-muted/10">
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Role Matrix</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Vai trò Matrix</div>
               <div className="overflow-auto">
                 <table className="w-full text-xs">
                   <thead>
@@ -1054,7 +1054,7 @@ export default function SettingsPage() {
                       </div>
                       <select
                         value={user.role}
-                        onChange={(e) => updateRole(user.id, e.target.value as Role)}
+                        onChange={(e) => updateVai trò(user.id, e.target.value as Vai trò)}
                         className="px-2 py-1 rounded-md border border-border bg-background text-xs"
                       >
                         <option value="admin">admin</option>
@@ -1066,17 +1066,17 @@ export default function SettingsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <input
                         value={passwordDrafts[user.id] || ''}
-                        onChange={(e) => setPasswordDrafts((prev) => ({ ...prev, [user.id]: e.target.value }))}
+                        onChange={(e) => setMật khẩuDrafts((prev) => ({ ...prev, [user.id]: e.target.value }))}
                         className="px-2 py-1 rounded-md border border-border bg-background text-xs flex-1 min-w-[180px]"
                         placeholder="new password"
                         type="password"
                       />
                       <button
-                        onClick={() => updatePassword(user.id)}
+                        onClick={() => updateMật khẩu(user.id)}
                         type="button"
                         className="btn text-xs px-2 py-1 flex items-center gap-1"
                       >
-                        <KeyRound size={12} /> Set Password
+                        <KeyRound size={12} /> Set Mật khẩu
                       </button>
                       <button
                         onClick={() => removeUser(user.id)}
@@ -1095,17 +1095,17 @@ export default function SettingsPage() {
       </div>
       )}
 
-      {/* About */}
+      {/* Thông tin */}
       {activeTab === 'about' && (
       <>
       <div className="panel p-5 space-y-3">
         <h2 className="text-sm font-medium flex items-center gap-2">
-          <Info size={14} className="text-info" /> About
+          <Info size={14} className="text-info" /> Thông tin
         </h2>
           <div className="space-y-2 text-xs">
             <div className="flex items-center justify-between py-1">
               <span className="text-muted-foreground">Dashboard</span>
-              <span>Marketing Dashboard v{dashboardVersion}</span>
+              <span>Marketing Dashboard v{dashboardPhiên bản}</span>
             </div>
             <div className="flex items-center justify-between py-1">
               <span className="text-muted-foreground">Runtime</span>

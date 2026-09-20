@@ -162,10 +162,10 @@ export default function AnalyticsPage() {
       <div className="space-y-6 animate-in">
         <div className="panel">
           <div className="panel-header">
-            <h1 className="text-xl font-semibold">Analytics</h1>
+            <h1 className="text-xl font-semibold">Báo cáo & Analytics</h1>
           </div>
           <div className="panel-body">
-            <div className="text-sm text-muted-foreground">Loading…</div>
+            <div className="text-sm text-muted-foreground">Đang tải…</div>
           </div>
         </div>
       </div>
@@ -178,7 +178,7 @@ export default function AnalyticsPage() {
         <div className="panel-header flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-2">
             <LineChart size={18} className="text-primary" />
-            <h1 className="text-xl font-semibold">Analytics</h1>
+            <h1 className="text-xl font-semibold">Báo cáo & Analytics</h1>
           </div>
           <div className="flex items-center gap-1">
             <RangeButton active={days === 7} onClick={() => setDays(7)} label="7d" />
@@ -244,7 +244,7 @@ function RangeButton({
   );
 }
 
-/* ─── Traffic Sources Bar ─────────────────────── */
+/* ─── Nguồn truy cập Bar ─────────────────────── */
 
 function TrafficSourcesSection({ sources }: { sources: Ga4TrafficSource[] }) {
   const total = sources.reduce((s, c) => s + c.sessions, 0);
@@ -254,7 +254,7 @@ function TrafficSourcesSection({ sources }: { sources: Ga4TrafficSource[] }) {
     <div className="space-y-2">
       <h4 className="section-title text-xs flex items-center gap-1.5">
         <Activity size={12} />
-        Traffic Sources
+        Nguồn truy cập
       </h4>
       <div className="space-y-1.5">
         {sources.map((s) => {
@@ -282,7 +282,7 @@ function TrafficSourcesSection({ sources }: { sources: Ga4TrafficSource[] }) {
   );
 }
 
-/* ─── Top Pages Table ─────────────────────────── */
+/* ─── Trang nổi bật Table ─────────────────────────── */
 
 function TopPagesSection({ pages }: { pages: Ga4TopPage[] }) {
   const columns = [
@@ -305,9 +305,9 @@ function TopPagesSection({ pages }: { pages: Ga4TopPage[] }) {
     <div className="space-y-2">
       <h4 className="section-title text-xs flex items-center gap-1.5">
         <FileText size={12} />
-        Top Pages
+        Trang nổi bật
       </h4>
-      <DataTable columns={columns} data={pages} keyField="pagePath" emptyMessage="No page data" />
+      <DataTable columns={columns} data={pages} keyField="pagePath" emptyMessage="Chưa có dữ liệu trang" />
     </div>
   );
 }
@@ -325,7 +325,7 @@ function DeviceSplitSection({ devices }: { devices: Ga4DeviceSplit[] }) {
     <div className="space-y-2">
       <h4 className="section-title text-xs flex items-center gap-1.5">
         <Monitor size={12} />
-        Devices
+        Thiết bị
       </h4>
       <div className="grid grid-cols-3 gap-2">
         {devices.map((d) => {
@@ -345,7 +345,7 @@ function DeviceSplitSection({ devices }: { devices: Ga4DeviceSplit[] }) {
   );
 }
 
-/* ─── New vs Returning ────────────────────────── */
+/* ─── Người dùng mới & quay lại ────────────────────────── */
 
 const NVR_ICONS: Record<string, typeof UserPlus> = {
   new: UserPlus,
@@ -357,7 +357,7 @@ function NewVsReturningSection({ segments }: { segments: Ga4NewVsReturning[] }) 
     <div className="space-y-2">
       <h4 className="section-title text-xs flex items-center gap-1.5">
         <Users size={12} />
-        New vs Returning
+        Người dùng mới & quay lại
       </h4>
       <div className="grid grid-cols-2 gap-2">
         {segments.map((s) => {
@@ -377,14 +377,14 @@ function NewVsReturningSection({ segments }: { segments: Ga4NewVsReturning[] }) 
   );
 }
 
-/* ─── Top Countries ───────────────────────────── */
+/* ─── Quốc gia nổi bật ───────────────────────────── */
 
 function CountriesSection({ countries }: { countries: Ga4GeoEntry[] }) {
   return (
     <div className="space-y-2">
       <h4 className="section-title text-xs flex items-center gap-1.5">
         <MapPin size={12} />
-        Top Countries
+        Quốc gia nổi bật
       </h4>
       <div className="space-y-1">
         {countries.map((c, i) => (
@@ -437,7 +437,7 @@ function WebsitePanel({ website }: { website: WebsitePayload }) {
                 color="var(--primary)"
               />
               <StatCard
-                label="Pageviews"
+                label="Lượt xem trang"
                 value={website.summary.pageviews}
                 icon={Activity}
                 sparkline={ga4Series.map((p) => ({ value: p.pageviews }))}
@@ -447,7 +447,7 @@ function WebsitePanel({ website }: { website: WebsitePayload }) {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <div className="card p-4">
-                <div className="text-xs text-muted-foreground">Sessions</div>
+                <div className="text-xs text-muted-foreground">Phiên truy cập</div>
                 <div className="text-lg font-mono font-semibold mt-1">
                   {website.summary.sessions.toLocaleString()}
                 </div>
@@ -480,8 +480,8 @@ function WebsitePanel({ website }: { website: WebsitePayload }) {
                     xKey="date"
                     lines={[
                       { key: "activeUsers", color: "var(--primary)", label: "Users" },
-                      { key: "pageviews", color: "var(--info)", label: "Pageviews" },
-                      { key: "sessions", color: "var(--success)", label: "Sessions" },
+                      { key: "pageviews", color: "var(--info)", label: "Lượt xem trang" },
+                      { key: "sessions", color: "var(--success)", label: "Phiên truy cập" },
                     ]}
                   />
                 </div>
@@ -519,14 +519,14 @@ function WebsitePanel({ website }: { website: WebsitePayload }) {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <StatCard
-                label="Visitors"
+                label="Khách truy cập"
                 value={website.summary.visitors}
                 icon={Users}
                 sparkline={plausibleSeries.map((p) => ({ value: p.visitors }))}
                 color="var(--primary)"
               />
               <StatCard
-                label="Pageviews"
+                label="Lượt xem trang"
                 value={website.summary.pageviews}
                 icon={Activity}
                 sparkline={plausibleSeries.map((p) => ({ value: p.pageviews }))}
@@ -559,8 +559,8 @@ function WebsitePanel({ website }: { website: WebsitePayload }) {
                     data={series as unknown as Record<string, unknown>[]}
                     xKey="date"
                     lines={[
-                      { key: "visitors", color: "var(--primary)", label: "Visitors" },
-                      { key: "pageviews", color: "var(--info)", label: "Pageviews" },
+                      { key: "visitors", color: "var(--primary)", label: "Khách truy cập" },
+                      { key: "pageviews", color: "var(--info)", label: "Lượt xem trang" },
                     ]}
                   />
                 </div>
