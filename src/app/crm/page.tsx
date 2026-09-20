@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useSmartPoll } from '@/hooks/use-smart-poll';
 import { useDashboard } from '@/store';
-import { timeAgo } from '@/lib/utils';
+import { timeAgo, STATUS_LABELS } from '@/lib/utils';
 import type { Lead, FunnelStep } from '@/types';
 import { LeadDetailPanel } from '@/components/crm/lead-detail-panel';
 
@@ -80,9 +80,9 @@ export default function CrmPage() {
   const urlView = searchParams.get('view') || '';
   const urlSort = searchParams.get('sort') || '';
 
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createSubmitting, setCreateSubmitting] = useState(false);
-  const [createForm, setCreateForm] = useState({
+  const [createOpen, setTạo leadOpen] = useState(false);
+  const [createSubmitting, setTạo leadSubmitting] = useState(false);
+  const [createForm, setTạo leadForm] = useState({
     first_name: '',
     last_name: '',
     title: '',
@@ -195,7 +195,7 @@ export default function CrmPage() {
     .filter(l => l.next_action_at)
     .sort((a, b) => new Date(a.next_action_at as string).getTime() - new Date(b.next_action_at as string).getTime());
 
-  async function markTaskDone(leadId: string) {
+  async function markTaskHoàn tất(leadId: string) {
     if (!canEdit) return;
     try {
       await fetch('/api/crm', {
@@ -214,10 +214,10 @@ export default function CrmPage() {
   }, []);
   const canEdit = role === 'admin' || role === 'editor';
 
-  async function submitCreateLead(e: React.FormEvent) {
+  async function submitTạo leadLead(e: React.FormEvent) {
     e.preventDefault();
     if (!canEdit) return;
-    setCreateSubmitting(true);
+    setTạo leadSubmitting(true);
     try {
       const payload: Record<string, unknown> = {
         first_name: createForm.first_name || null,
@@ -246,8 +246,8 @@ export default function CrmPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create lead');
 
-      setCreateOpen(false);
-      setCreateForm({
+      setTạo leadOpen(false);
+      setTạo leadForm({
         first_name: '',
         last_name: '',
         title: '',
@@ -268,7 +268,7 @@ export default function CrmPage() {
     } catch {
       // ignore
     } finally {
-      setCreateSubmitting(false);
+      setTạo leadSubmitting(false);
     }
   }
 
@@ -296,45 +296,45 @@ export default function CrmPage() {
             type="button"
             aria-label="Close"
             className="absolute inset-0 bg-black/40"
-            onClick={() => setCreateOpen(false)}
+            onClick={() => setTạo leadOpen(false)}
           />
           <div className="panel relative w-full max-w-xl" role="dialog" aria-modal="true" aria-labelledby="crm-add-lead-title">
             <div className="panel-header flex items-center justify-between">
-              <h2 id="crm-add-lead-title" className="text-sm font-medium">Add Lead</h2>
-              <button type="button" aria-label="Close add lead" onClick={() => setCreateOpen(false)} className="text-muted-foreground hover:text-foreground">
+              <h2 id="crm-add-lead-title" className="text-sm font-medium">Thêm lead</h2>
+              <button type="button" aria-label="Close add lead" onClick={() => setTạo leadOpen(false)} className="text-muted-foreground hover:text-foreground">
                 <X size={16} />
               </button>
             </div>
-            <form onSubmit={submitCreateLead} className="panel-body space-y-3">
+            <form onSubmit={submitTạo leadLead} className="panel-body space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input name="first_name" aria-label="First name" autoComplete="given-name" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="First name" value={createForm.first_name} onChange={(e) => setCreateForm(v => ({ ...v, first_name: e.target.value }))} />
-                <input name="last_name" aria-label="Last name" autoComplete="family-name" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Last name" value={createForm.last_name} onChange={(e) => setCreateForm(v => ({ ...v, last_name: e.target.value }))} />
-                <input name="title" aria-label="Title" autoComplete="organization-title" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Title" value={createForm.title} onChange={(e) => setCreateForm(v => ({ ...v, title: e.target.value }))} />
-                <input name="company" aria-label="Company" autoComplete="organization" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Company" value={createForm.company} onChange={(e) => setCreateForm(v => ({ ...v, company: e.target.value }))} />
-                <input name="email" aria-label="Email" autoComplete="email" type="email" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Email" value={createForm.email} onChange={(e) => setCreateForm(v => ({ ...v, email: e.target.value }))} />
-                <input name="linkedin_url" aria-label="LinkedIn URL" autoComplete="url" type="url" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="LinkedIn URL" value={createForm.linkedin_url} onChange={(e) => setCreateForm(v => ({ ...v, linkedin_url: e.target.value }))} />
-                <input name="source" aria-label="Source" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Source" value={createForm.source} onChange={(e) => setCreateForm(v => ({ ...v, source: e.target.value }))} />
-                <input name="industry_segment" aria-label="Industry segment" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Industry segment" value={createForm.industry_segment} onChange={(e) => setCreateForm(v => ({ ...v, industry_segment: e.target.value }))} />
-                <input name="company_size" aria-label="Company size" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Company size" value={createForm.company_size} onChange={(e) => setCreateForm(v => ({ ...v, company_size: e.target.value }))} />
-                <input name="score" aria-label="Score" inputMode="numeric" type="number" min={0} max={100} className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Score (0-100)" value={createForm.score} onChange={(e) => setCreateForm(v => ({ ...v, score: e.target.value }))} />
-                <select name="tier" aria-label="Tier" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" value={createForm.tier} onChange={(e) => setCreateForm(v => ({ ...v, tier: e.target.value }))}>
-                  <option value="">Tier (optional)</option>
+                <input name="first_name" aria-label="Tên" autoComplete="given-name" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Tên" value={createForm.first_name} onChange={(e) => setTạo leadForm(v => ({ ...v, first_name: e.target.value }))} />
+                <input name="last_name" aria-label="Họ" autoComplete="family-name" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Họ" value={createForm.last_name} onChange={(e) => setTạo leadForm(v => ({ ...v, last_name: e.target.value }))} />
+                <input name="title" aria-label="Chức danh" autoComplete="organization-title" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Chức danh" value={createForm.title} onChange={(e) => setTạo leadForm(v => ({ ...v, title: e.target.value }))} />
+                <input name="company" aria-label="Doanh nghiệp" autoComplete="organization" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Doanh nghiệp" value={createForm.company} onChange={(e) => setTạo leadForm(v => ({ ...v, company: e.target.value }))} />
+                <input name="email" aria-label="Email" autoComplete="email" type="email" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Email" value={createForm.email} onChange={(e) => setTạo leadForm(v => ({ ...v, email: e.target.value }))} />
+                <input name="linkedin_url" aria-label="LinkedIn URL" autoComplete="url" type="url" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="LinkedIn URL" value={createForm.linkedin_url} onChange={(e) => setTạo leadForm(v => ({ ...v, linkedin_url: e.target.value }))} />
+                <input name="source" aria-label="Nguồn lead" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Nguồn lead" value={createForm.source} onChange={(e) => setTạo leadForm(v => ({ ...v, source: e.target.value }))} />
+                <input name="industry_segment" aria-label="Ngành" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Ngành" value={createForm.industry_segment} onChange={(e) => setTạo leadForm(v => ({ ...v, industry_segment: e.target.value }))} />
+                <input name="company_size" aria-label="Doanh nghiệp size" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Doanh nghiệp size" value={createForm.company_size} onChange={(e) => setTạo leadForm(v => ({ ...v, company_size: e.target.value }))} />
+                <input name="score" aria-label="Score" inputMode="numeric" type="number" min={0} max={100} className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Điểm lead (0-100)" value={createForm.score} onChange={(e) => setTạo leadForm(v => ({ ...v, score: e.target.value }))} />
+                <select name="tier" aria-label="Tier" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" value={createForm.tier} onChange={(e) => setTạo leadForm(v => ({ ...v, tier: e.target.value }))}>
+                  <option value="">Nhóm lead (không bắt buộc)</option>
                   <option value="A">A</option>
                   <option value="B">B</option>
                   <option value="C">C</option>
                 </select>
-                <select name="status" aria-label="Stage" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" value={createForm.status} onChange={(e) => setCreateForm(v => ({ ...v, status: e.target.value }))}>
+                <select name="status" aria-label="Stage" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" value={createForm.status} onChange={(e) => setTạo leadForm(v => ({ ...v, status: e.target.value }))}>
                   {['new','validated','approved','contacted','replied','interested','booked','qualified','rejected','disqualified'].map(s => (
-                    <option key={s} value={s}>{s}</option>
+                    <option key={s} value={s}>{STATUS_LABELS[s] || s}</option>
                   ))}
                 </select>
-                <input name="next_action_at" aria-label="Next action date" type="date" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" value={createForm.next_action_at} onChange={(e) => setCreateForm(v => ({ ...v, next_action_at: e.target.value }))} />
+                <input name="next_action_at" aria-label="Next action date" type="date" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" value={createForm.next_action_at} onChange={(e) => setTạo leadForm(v => ({ ...v, next_action_at: e.target.value }))} />
               </div>
-              <textarea name="notes" aria-label="Notes" className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2" rows={3} placeholder="Notes" value={createForm.notes} onChange={(e) => setCreateForm(v => ({ ...v, notes: e.target.value }))} />
+              <textarea name="notes" aria-label="Ghi chú" className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2" rows={3} placeholder="Ghi chú" value={createForm.notes} onChange={(e) => setTạo leadForm(v => ({ ...v, notes: e.target.value }))} />
               <div className="flex items-center justify-end gap-2">
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCreateOpen(false)}>Cancel</button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setTạo leadOpen(false)}>Hủy</button>
                 <button type="submit" disabled={createSubmitting} className="btn btn-primary btn-sm">
-                  {createSubmitting ? 'Creating...' : 'Create'}
+                  {createSubmitting ? 'Đang tạo...' : 'Tạo lead'}
                 </button>
               </div>
             </form>
@@ -345,17 +345,17 @@ export default function CrmPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">CRM</h1>
+          <h1 className="text-xl font-semibold">Khách hàng & Lead</h1>
           {canEdit && (
-            <button className="btn btn-primary btn-sm" onClick={() => setCreateOpen(true)}>
-              Add Lead
+            <button className="btn btn-primary btn-sm" onClick={() => setTạo leadOpen(true)}>
+              Thêm lead
             </button>
           )}
         </div>
         {data?.summary && (
           <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
             <span><strong className="text-foreground">{data.summary.total}</strong> leads</span>
-            <span>avg score <strong className="text-foreground">{data.summary.avg_score}</strong></span>
+            <span>điểm TB <strong className="text-foreground">{data.summary.avg_score}</strong></span>
             {data.summary.tier_breakdown.map(t => (
               <span key={t.tier} className={`badge border ${TIER_COLORS[t.tier] || ''}`}>
                 Tier {t.tier}: {t.c}
@@ -363,12 +363,12 @@ export default function CrmPage() {
             ))}
           {(data.summary?.tasks_overdue ?? data.tasks_overdue ?? 0) > 0 && (
             <span className="badge border bg-destructive/15 text-destructive border-destructive/30">
-                SLA breaches: {data.summary?.tasks_overdue ?? data.tasks_overdue}
+                Quá hạn: {data.summary?.tasks_overdue ?? data.tasks_overdue}
             </span>
           )}
           {(data.summary?.tasks_due_today ?? data.tasks_due_today ?? 0) > 0 && (
             <span className="badge border bg-warning/15 text-warning border-warning/30">
-                Due today: {data.summary?.tasks_due_today ?? data.tasks_due_today}
+                Cần xử lý hôm nay: {data.summary?.tasks_due_today ?? data.tasks_due_today}
             </span>
           )}
           </div>
@@ -383,28 +383,28 @@ export default function CrmPage() {
               <BarChart3 size={12} /> Pipeline
             </div>
             <div className="text-lg font-semibold">{data.summary.total}</div>
-            <div className="text-[10px] text-muted-foreground">active leads</div>
+            <div className="text-[10px] text-muted-foreground">lead đang quản lý</div>
           </div>
           <div className="stat-tile">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
               <AlertCircle size={12} className="text-warning" /> Pending
             </div>
             <div className="text-lg font-semibold text-warning">{data.summary.pending_approvals}</div>
-            <div className="text-[10px] text-muted-foreground">emails awaiting approval</div>
+            <div className="text-[10px] text-muted-foreground">email chờ duyệt</div>
           </div>
           <div className="stat-tile">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
               <Send size={12} className="text-success" /> Sent
             </div>
             <div className="text-lg font-semibold text-success">{data.summary.emails_sent}</div>
-            <div className="text-[10px] text-muted-foreground">emails delivered</div>
+            <div className="text-[10px] text-muted-foreground">email đã gửi</div>
           </div>
           <div className="stat-tile">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
               <Star size={12} className="text-primary" /> Conversion
             </div>
             <div className="text-lg font-semibold text-primary">{data.summary.conversion_rate}%</div>
-            <div className="text-[10px] text-muted-foreground">reply rate</div>
+            <div className="text-[10px] text-muted-foreground">phản hồi / liên hệ</div>
           </div>
         </div>
       )}
@@ -413,7 +413,7 @@ export default function CrmPage() {
       {data?.funnel && (
         <div className="panel">
           <div className="panel-header">
-            <h3 className="section-title">Pipeline</h3>
+            <h3 className="section-title">Pipeline khách hàng</h3>
           </div>
           <div className="panel-body">
           <div className="flex items-end gap-1 h-20">
@@ -439,7 +439,7 @@ export default function CrmPage() {
                   />
                   <div className="flex flex-col items-center gap-0.5">
                     <Icon size={12} className={STAGE_COLORS[step.name]} />
-                    <span className="text-[9px] text-muted-foreground capitalize">{step.name}</span>
+                    <span className="text-[9px] text-muted-foreground">{STATUS_LABELS[step.name] || step.name}</span>
                   </div>
                 </button>
               );
@@ -459,7 +459,7 @@ export default function CrmPage() {
             name="search"
             aria-label="Search leads"
             autoComplete="off"
-            placeholder="Search leads..."
+            placeholder="Tìm tên, doanh nghiệp, email..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-3"
@@ -472,7 +472,7 @@ export default function CrmPage() {
           aria-label="Tier filter"
           className="px-3"
         >
-          <option value="">All Tiers</option>
+          <option value="">Tất cả nhóm</option>
           <option value="A">Tier A</option>
           <option value="B">Tier B</option>
           <option value="C">Tier C</option>
@@ -515,17 +515,17 @@ export default function CrmPage() {
         )}
         {(stageFilter || tierFilter || search) && (
           <button onClick={() => { setStageFilter(''); setTierFilter(''); setSearch(''); }} className="btn btn-ghost btn-sm text-destructive">
-            <X size={12} /> Clear
+            <X size={12} /> Xóa lọc
           </button>
         )}
         </div>
       </div>
 
-      {/* Tasks Due */}
+      {/* Việc cần xử lý Due */}
       {tasksDue.length > 0 && (
         <div className="panel">
           <div className="panel-header flex items-center justify-between">
-            <h3 className="section-title">Tasks</h3>
+            <h3 className="section-title">Việc cần xử lý</h3>
             <button
               className="btn btn-ghost text-xs"
               onClick={() => {
@@ -549,7 +549,7 @@ export default function CrmPage() {
                 URL.revokeObjectURL(url);
               }}
             >
-              Export CSV
+              Xuất CSV
             </button>
           </div>
           <div className="panel-body space-y-3">
@@ -566,7 +566,7 @@ export default function CrmPage() {
                 <div className="space-y-2">
                   <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label} ({items.length})</div>
                   {items.length === 0 ? (
-                    <div className="text-xs text-muted-foreground">None</div>
+                    <div className="text-xs text-muted-foreground">Không có</div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {items.slice(0, 6).map(task => (
@@ -587,11 +587,11 @@ export default function CrmPage() {
                               {timeAgo(task.next_action_at as string)}
                             </span>
                             <button
-                              onClick={() => markTaskDone(task.id)}
+                              onClick={() => markTaskHoàn tất(task.id)}
                               disabled={!canEdit}
                               className="text-[10px] text-primary hover:underline disabled:opacity-50"
                             >
-                              Done
+                              Hoàn tất
                             </button>
                           </div>
                         </div>
@@ -603,9 +603,9 @@ export default function CrmPage() {
 
               return (
                 <div className="space-y-3">
-                  {renderList('Overdue', overdue)}
-                  {renderList('Due Today', dueSoon)}
-                  {renderList('Upcoming', upcoming)}
+                  {renderList('Quá hạn', overdue)}
+                  {renderList('Hôm nay', dueSoon)}
+                  {renderList('Sắp tới', upcoming)}
                 </div>
               );
             })()}
@@ -650,7 +650,7 @@ export default function CrmPage() {
             ) : (
               <div className="panel p-8 text-center text-sm text-muted-foreground sticky top-24">
                 <Contact size={32} className="mx-auto mb-3 opacity-30" />
-                <p>Select a lead to view details</p>
+                <p>Chọn một lead để xem chi tiết</p>
               </div>
             )}
           </div>
@@ -919,7 +919,7 @@ function KanbanColumn({
         ))}
         {leads.length === 0 && (
           <div className="text-[10px] text-muted-foreground text-center py-6 opacity-50">
-            {canEdit ? 'Drop here' : 'No items'}
+            {canEdit ? 'Thả vào đây' : 'Trống'}
           </div>
         )}
       </div>
@@ -932,7 +932,7 @@ function KanbanColumn({
 function KanbanCard({ lead, selected, onSelect, nowMs, canEdit, slaStaleDays, slaNewDays }: { lead: Lead; selected: boolean; onSelect: () => void; nowMs: number | null; canEdit: boolean; slaStaleDays: number; slaNewDays: number }) {
   const isPaused = (lead as { pause_outreach?: number }).pause_outreach === 1;
   const missingEmail = !lead.email;
-  const missingCompany = !lead.company;
+  const missingDoanh nghiệp = !lead.company;
   const missingIndustry = !lead.industry_segment;
   const staleDays = (nowMs != null && lead.last_touch_at)
     ? Math.floor((nowMs - new Date(lead.last_touch_at).getTime()) / (1000 * 60 * 60 * 24))
@@ -1004,7 +1004,7 @@ function KanbanCard({ lead, selected, onSelect, nowMs, canEdit, slaStaleDays, sl
             next {timeAgo(lead.next_action_at)}
           </span>
         )}
-        {(missingEmail || missingCompany || missingIndustry) && (
+        {(missingEmail || missingDoanh nghiệp || missingIndustry) && (
           <span className="px-1.5 py-0.5 rounded-full bg-warning/15 text-warning flex items-center gap-1">
             <AlertCircle size={9} /> missing
           </span>
@@ -1036,7 +1036,7 @@ function LeadRow({ lead, selected, onClick, nowMs, slaStaleDays, slaNewDays }: {
   const Icon = STAGE_ICONS[lead.status] || CircleDot;
   const isPaused = (lead as { pause_outreach?: number }).pause_outreach === 1;
   const missingEmail = !lead.email;
-  const missingCompany = !lead.company;
+  const missingDoanh nghiệp = !lead.company;
   const missingIndustry = !lead.industry_segment;
   const staleDays = (nowMs != null && lead.last_touch_at)
     ? Math.floor((nowMs - new Date(lead.last_touch_at).getTime()) / (1000 * 60 * 60 * 24))
@@ -1070,7 +1070,7 @@ function LeadRow({ lead, selected, onClick, nowMs, slaStaleDays, slaNewDays }: {
           )}
           {isPaused && (
             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-warning/15 text-warning border border-warning/30">
-              paused
+              tạm dừng
             </span>
           )}
         </div>
@@ -1103,7 +1103,7 @@ function LeadRow({ lead, selected, onClick, nowMs, slaStaleDays, slaNewDays }: {
           )}
           {(staleDays !== null && staleDays > slaStaleDays) && (
             <span className="px-2 py-0.5 rounded-full bg-destructive/15 text-destructive">
-              SLA breach
+              Quá hạn SLA
             </span>
           )}
           {lead.next_action_at && (
@@ -1111,11 +1111,11 @@ function LeadRow({ lead, selected, onClick, nowMs, slaStaleDays, slaNewDays }: {
               next {timeAgo(lead.next_action_at)}
             </span>
           )}
-          {(missingEmail || missingCompany || missingIndustry) && (
+          {(missingEmail || missingDoanh nghiệp || missingIndustry) && (
             <span className="px-2 py-0.5 rounded-full bg-warning/15 text-warning flex items-center gap-1">
               <AlertCircle size={10} /> missing {[
                 missingEmail ? 'email' : null,
-                missingCompany ? 'company' : null,
+                missingDoanh nghiệp ? 'company' : null,
                 missingIndustry ? 'industry' : null,
               ].filter(Boolean).join(', ')}
             </span>
@@ -1125,7 +1125,7 @@ function LeadRow({ lead, selected, onClick, nowMs, slaStaleDays, slaNewDays }: {
       <div className="flex items-center gap-3 shrink-0">
         <div className="flex items-center gap-1.5">
           <Icon size={14} className={STAGE_COLORS[lead.status]} />
-          <span className="text-xs capitalize">{lead.status}</span>
+          <span className="text-xs">{STATUS_LABELS[lead.status] || lead.status}</span>
         </div>
         {lead.score != null && (
           <span className="text-xs font-mono font-semibold bg-muted/50 px-2 py-0.5 rounded">

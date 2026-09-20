@@ -8,7 +8,7 @@ export function cn(...inputs: ClassValue[]): string {
 export function formatDate(date: string | null): string {
   if (!date) return '—';
   try {
-    return new Date(date).toLocaleDateString('en-US', {
+    return new Date(date).toLocaleDateString('vi-VN', {
       month: 'short', day: 'numeric',
     });
   } catch {
@@ -19,7 +19,7 @@ export function formatDate(date: string | null): string {
 export function formatDateTime(date: string | null): string {
   if (!date) return '—';
   try {
-    return new Date(date).toLocaleString('en-US', {
+    return new Date(date).toLocaleString('vi-VN', {
       month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
     });
   } catch {
@@ -43,20 +43,20 @@ export function timeAgo(date: string | null): string {
   const then = new Date(date).getTime();
   const diff = now - then;
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return 'vừa xong';
+  if (mins < 60) return `${mins} phút trước`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return `${hrs} giờ trước`;
   const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
+  return `${days} ngày trước`;
 }
 
 export const PILLAR_LABELS: Record<number, string> = {
-  1: 'AI Dev Insights',
-  2: 'Open Source',
-  3: 'Build in Public',
-  4: 'Founder Lessons',
-  5: 'Tech Tutorials',
+  1: 'Kiến thức & Giá trị',
+  2: 'Dịch vụ & Giải pháp',
+  3: 'Case Study',
+  4: 'Thương hiệu Labcos',
+  5: 'Xu hướng & Tin tức',
 };
 
 export const STATUS_COLORS: Record<string, string> = {
@@ -93,4 +93,22 @@ export const STATUS_COLORS: Record<string, string> = {
   competitor: 'bg-purple-900/60 text-purple-300',
   brand_mention: 'bg-amber-900/60 text-amber-300',
   opportunity: 'bg-green-900/60 text-green-300',
+};
+
+
+export const STATUS_LABELS: Record<string, string> = {
+  draft: 'Bản nháp', pending_approval: 'Chờ duyệt', ready: 'Sẵn sàng',
+  published: 'Đã đăng', rejected: 'Từ chối', new: 'Mới',
+  validated: 'Đã xác minh', approved: 'Đã duyệt', contacted: 'Đã liên hệ',
+  replied: 'Đã phản hồi', interested: 'Quan tâm', booked: 'Đã hẹn',
+  qualified: 'Tiềm năng', disqualified: 'Không phù hợp', queued: 'Đang chờ',
+  sent: 'Đã gửi', cancelled: 'Đã hủy', pending: 'Đang chờ',
+  proposed: 'Đề xuất', running: 'Đang chạy', completed: 'Hoàn tất',
+  SCALE: 'Mở rộng', ITERATE: 'Tối ưu', KILL: 'Dừng',
+  high: 'Cao', medium: 'Trung bình', low: 'Thấp',
+  pain: 'Vấn đề / nhu cầu', hiring: 'Tuyển dụng', launch: 'Ra mắt',
+  competitor: 'Đối thủ', brand_mention: 'Nhắc thương hiệu', opportunity: 'Cơ hội',
+  reply: 'Trả lời', quote_tweet: 'Trích dẫn', comment: 'Bình luận',
+  follow: 'Theo dõi', dm: 'Tin nhắn', opt_out: 'Hủy nhận',
+  bounce: 'Email lỗi', domain_block: 'Chặn domain',
 };

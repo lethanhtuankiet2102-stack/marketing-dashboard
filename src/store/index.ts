@@ -69,7 +69,7 @@ export const useDashboard = create<DashboardState>((set) => ({
   loading: {},
   lastSynced: null,
   feedOpen: false,
-  realOnly: false,
+  realOnly: true,
 
   setOverview: (data) => set({ overview: data }),
   setAlerts: (data) => set({ alerts: data }),
