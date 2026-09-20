@@ -7,13 +7,13 @@ import { useDashboard } from '@/store';
 import type { ActivityEntry } from '@/types';
 
 const ACTION_FILTERS = [
-  { key: '', label: 'All Actions' },
-  { key: 'post', label: 'Post' },
-  { key: 'engage', label: 'Engage' },
-  { key: 'discover', label: 'Discover' },
-  { key: 'send', label: 'Send' },
-  { key: 'triage', label: 'Triage' },
-  { key: 'research', label: 'Research' },
+  { key: '', label: 'Tất cả hoạt động' },
+  { key: 'post', label: 'Đăng bài' },
+  { key: 'engage', label: 'Tương tác' },
+  { key: 'discover', label: 'Tìm lead' },
+  { key: 'send', label: 'Gửi email' },
+  { key: 'triage', label: 'Phân loại' },
+  { key: 'research', label: 'Nghiên cứu' },
 ];
 
 export default function ActivityPage() {
@@ -33,7 +33,7 @@ export default function ActivityPage() {
     <div className="space-y-6 animate-in">
       <div className="panel">
         <div className="panel-header flex items-center justify-between flex-wrap gap-3">
-          <h1 className="text-xl font-semibold">Activity Log</h1>
+          <h1 className="text-xl font-semibold">Nhật ký hoạt động</h1>
           <div className="flex items-center gap-2">
             <button
               className="btn btn-ghost text-xs"
@@ -46,7 +46,7 @@ export default function ActivityPage() {
                 window.open(`/api/activity?${params.toString()}`, '_blank', 'noopener,noreferrer');
               }}
             >
-              Export CSV
+              Xuất CSV
             </button>
             <select
               value={filter}
@@ -64,7 +64,7 @@ export default function ActivityPage() {
         <div className="panel-body space-y-0">
           {entries.length === 0 ? (
             <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-              No activity logged yet
+              Chưa có hoạt động được ghi nhận
             </div>
           ) : (
             groupByDay(entries).map(group => (
@@ -142,7 +142,7 @@ function groupByDay(items: ActivityEntry[]) {
   const groups: { day: string; items: ActivityEntry[] }[] = [];
   const byDay = new Map<string, ActivityEntry[]>();
   for (const entry of items) {
-    const day = entry.ts ? new Date(entry.ts).toLocaleDateString() : 'Unknown';
+    const day = entry.ts ? new Date(entry.ts).toLocaleDateString('vi-VN') : 'Không rõ ngày';
     if (!byDay.has(day)) byDay.set(day, []);
     byDay.get(day)!.push(entry);
   }

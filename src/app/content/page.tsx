@@ -28,7 +28,7 @@ export default function ContentPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const updateTrạng thái = async (id: string, status: string) => {
+  const updateStatus = async (id: string, status: string) => {
     try {
       await fetch('/api/content', {
         method: 'PATCH',
@@ -73,7 +73,7 @@ export default function ContentPage() {
             className={`tab ${tab === t ? 'active' : ''}`}
             onClick={() => setTab(t)}
           >
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+            {t === 'queue' ? 'Hàng chờ' : t === 'calendar' ? 'Lịch nội dung' : 'Hiệu quả'}
           </button>
         ))}
       </div>
@@ -83,7 +83,7 @@ export default function ContentPage() {
       {tab === 'queue' && (
         <div className="panel">
           <div className="panel-header">
-            <h3 className="section-title">Hàng chờ</h3>
+            <h3 className="section-title">Hàng chờ nội dung</h3>
           </div>
           <div className="panel-body !p-0">
           <DataTable
@@ -91,7 +91,7 @@ export default function ContentPage() {
               { key: 'platform', label: 'Nền tảng', render: (r: ContentPost) => (
                 <span className="font-mono text-xs uppercase">{r.platform}</span>
               )},
-              { key: 'text_preview', label: 'Content', render: (r: ContentPost) => (
+              { key: 'text_preview', label: 'Nội dung', render: (r: ContentPost) => (
                 <span className="text-sm max-w-md truncate block">{r.text_preview || '\u2014'}</span>
               )},
               { key: 'pillar', label: 'Chủ đề', render: (r: ContentPost) => (
@@ -107,10 +107,10 @@ export default function ContentPage() {
               { key: 'actions', label: '', render: (r: ContentPost) => (
                 r.status === 'pending_approval' ? (
                   <div className="flex gap-1">
-                    <button className="btn btn-success btn-sm" onClick={() => updateTrạng thái(r.id, 'ready')}>
+                    <button className="btn btn-success btn-sm" onClick={() => updateStatus(r.id, 'ready')}>
                       <Check size={12} />
                     </button>
-                    <button className="btn btn-destructive btn-sm" onClick={() => updateTrạng thái(r.id, 'rejected')}>
+                    <button className="btn btn-destructive btn-sm" onClick={() => updateStatus(r.id, 'rejected')}>
                       <X size={12} />
                     </button>
                   </div>
@@ -128,14 +128,14 @@ export default function ContentPage() {
       {tab === 'calendar' && (
         <div className="panel">
           <div className="panel-header">
-            <h3 className="section-title">Đã đăng & Lịch đăng</h3>
+            <h3 className="section-title">Đã đăng & Đã lên lịch</h3>
           </div>
           <div className="panel-body">
           <div className="grid grid-cols-7 gap-2">
             {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(d => (
               <div key={d} className="text-center text-xs text-muted-foreground font-medium py-1">{d}</div>
             ))}
-            {generateLịch nội dungDays(published).map((day, i) => (
+            {generateCalendarDays(published).map((day, i) => (
               <div key={i} className={`min-h-16 p-1 rounded-lg border ${
                 day.posts.length > 0 ? 'border-primary/30 bg-primary/5' : 'border-border/30'
               }`}>
@@ -207,7 +207,7 @@ export default function ContentPage() {
   );
 }
 
-function generateLịch nội dungDays(posts: ContentPost[]) {
+function generateCalendarDays(posts: ContentPost[]) {
   const days: { label: string; posts: ContentPost[] }[] = [];
   const now = new Date();
   const startOfWeek = new Date(now);

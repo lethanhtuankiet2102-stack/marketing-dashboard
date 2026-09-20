@@ -36,13 +36,13 @@ export default function EngagementPage() {
   return (
     <div className="space-y-6 animate-in">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-semibold">Engagement</h1>
+        <h1 className="text-xl font-semibold">Tương tác</h1>
         <div className="text-xs text-muted-foreground">
           X <span className="font-mono text-foreground">{xEngagements.length}</span>
           {' · '}
           LinkedIn <span className="font-mono text-foreground">{linkedInQueue.length}</span>
           {' · '}
-          Signals <span className="font-mono text-foreground">{signals.length}</span>
+          Tín hiệu <span className="font-mono text-foreground">{signals.length}</span>
         </div>
       </div>
 
@@ -50,9 +50,9 @@ export default function EngagementPage() {
         <div className="panel-body !p-0">
       <div className="flex gap-0 border-b border-border">
         {([
-          { key: 'x' as Tab, label: `X Activity (${xEngagements.length})` },
-          { key: 'linkedin' as Tab, label: `LinkedIn Queue (${linkedInQueue.length})` },
-          { key: 'signals' as Tab, label: `Signals (${signals.length})` },
+          { key: 'x' as Tab, label: `Hoạt động X (${xEngagements.length})` },
+          { key: 'linkedin' as Tab, label: `Hàng chờ LinkedIn (${linkedInQueue.length})` },
+          { key: 'signals' as Tab, label: `Tín hiệu (${signals.length})` },
         ]).map(t => (
           <button
             key={t.key}
@@ -69,30 +69,30 @@ export default function EngagementPage() {
       {tab === 'x' && (
         <div className="panel">
           <div className="panel-header">
-            <h3 className="section-title">X Activity</h3>
+            <h3 className="section-title">Hoạt động X</h3>
           </div>
           <div className="panel-body !p-0">
           <DataTable
             columns={[
-              { key: 'action_type', label: 'Action', render: (r: Engagement) => <Badge status={r.action_type || 'reply'} /> },
-              { key: 'target_username', label: 'Target', render: (r: Engagement) => (
+              { key: 'action_type', label: 'Hành động', render: (r: Engagement) => <Badge status={r.action_type || 'reply'} /> },
+              { key: 'target_username', label: 'Đối tượng', render: (r: Engagement) => (
                 <span className="font-mono text-xs">@{r.target_username || '\u2014'}</span>
               )},
-              { key: 'our_text', label: 'Text', render: (r: Engagement) => (
+              { key: 'our_text', label: 'Nội dung', render: (r: Engagement) => (
                 <span className="text-sm max-w-md truncate block">{r.our_text || '\u2014'}</span>
               )},
-              { key: 'target_url', label: 'Link', render: (r: Engagement) => r.target_url ? (
+              { key: 'target_url', label: 'Liên kết', render: (r: Engagement) => r.target_url ? (
                 <a href={r.target_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                   <ExternalLink size={14} />
                 </a>
               ) : null },
-              { key: 'created_at', label: 'Time', render: (r: Engagement) => (
+              { key: 'created_at', label: 'Thời gian', render: (r: Engagement) => (
                 <span className="text-xs text-muted-foreground">{formatDateTime(r.created_at)}</span>
               )},
             ]}
             data={xEngagements}
             keyField="id"
-            emptyMessage="No X engagements yet"
+            emptyMessage="Chưa có tương tác X"
           />
           </div>
         </div>
@@ -102,7 +102,7 @@ export default function EngagementPage() {
         <div className="space-y-3">
           {linkedInQueue.length === 0 ? (
             <div className="panel p-8 text-center text-muted-foreground text-sm">
-              No LinkedIn comments queued
+              Chưa có bình luận LinkedIn trong hàng chờ
             </div>
           ) : (
             linkedInQueue.map(item => (
@@ -125,7 +125,7 @@ export default function EngagementPage() {
                     onClick={() => copyText(item.our_text || '', item.id)}
                   >
                     {copied === item.id ? <Check size={12} /> : <Copy size={12} />}
-                    {copied === item.id ? 'Copied' : 'Copy'}
+                    {copied === item.id ? 'Đã sao chép' : 'Sao chép'}
                   </button>
                 </div>
               </div>
@@ -138,7 +138,7 @@ export default function EngagementPage() {
         <div className="space-y-3">
           {signals.length === 0 ? (
             <div className="panel p-8 text-center text-muted-foreground text-sm">
-              No signals detected yet
+              Chưa phát hiện tín hiệu nào
             </div>
           ) : (
             signals.slice(0, 50).map(signal => (

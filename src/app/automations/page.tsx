@@ -79,7 +79,7 @@ export default function AutomationsPage() {
   if (!data || loading) {
     return (
       <div className="space-y-6 animate-in">
-        <h1 className="text-xl font-semibold">Automations</h1>
+        <h1 className="text-xl font-semibold">Tự động hóa</h1>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map(i => <div key={i} className="panel h-32 animate-pulse bg-muted/20" />)}
         </div>
@@ -108,7 +108,7 @@ export default function AutomationsPage() {
 
   return (
     <div className="space-y-6 animate-in">
-      <h1 className="text-xl font-semibold">Automations</h1>
+      <h1 className="text-xl font-semibold">Tự động hóa</h1>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -118,7 +118,7 @@ export default function AutomationsPage() {
           </div>
           <div>
             <div className="text-2xl font-semibold font-mono">{summary.pending_approvals}</div>
-            <div className="text-xs text-muted-foreground">Pending Approvals</div>
+            <div className="text-xs text-muted-foreground">Chờ duyệt</div>
           </div>
         </div>
         <div className="stat-tile flex items-center gap-4">
@@ -127,7 +127,7 @@ export default function AutomationsPage() {
           </div>
           <div>
             <div className="text-2xl font-semibold font-mono">{summary.total_executions_30d}</div>
-            <div className="text-xs text-muted-foreground">Executions (30d)</div>
+            <div className="text-xs text-muted-foreground">Lượt chạy (30 ngày)</div>
           </div>
         </div>
         <div className="stat-tile flex items-center gap-4">
@@ -136,17 +136,17 @@ export default function AutomationsPage() {
           </div>
           <div>
             <div className="text-2xl font-semibold font-mono">{summary.active_cron_jobs}</div>
-            <div className="text-xs text-muted-foreground">Scheduled Jobs</div>
+            <div className="text-xs text-muted-foreground">Tác vụ đã lên lịch</div>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Daily Schedule */}
+        {/* Lịch chạy hằng ngày */}
         <div className="panel">
           <div className="panel-header">
             <h3 className="section-title flex items-center gap-2">
-              <Calendar size={14} /> Daily Schedule
+              <Calendar size={14} /> Lịch chạy hằng ngày
             </h3>
           </div>
           <div className="panel-body">
@@ -187,7 +187,7 @@ export default function AutomationsPage() {
                   </span>
                 );
               })}
-              <span>Weekdays only (Mon-Fri)</span>
+              <span>Chỉ ngày làm việc (T2-T6)</span>
             </div>
           </div>
         </div>
@@ -196,7 +196,7 @@ export default function AutomationsPage() {
         <div className="panel">
           <div className="panel-header flex items-center justify-between">
             <h3 className="section-title flex items-center gap-2">
-              <CheckCircle size={14} /> Automation Approvals
+              <CheckCircle size={14} /> Phê duyệt tự động hóa
               {approvals.length > 0 && (
                 <span className="text-[10px] bg-warning/15 text-warning px-2 py-0.5 rounded-full font-semibold">
                   {approvals.length}
@@ -204,13 +204,13 @@ export default function AutomationsPage() {
               )}
             </h3>
             <Link href="/content" className="text-[10px] text-primary hover:underline">
-              Content queue
+              Hàng chờ nội dung
             </Link>
           </div>
           <div className="panel-body">
             {approvals.length === 0 ? (
               <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-                <CheckCircle size={16} className="mr-2 text-success" /> All caught up
+                <CheckCircle size={16} className="mr-2 text-success" /> Đã xử lý hết
               </div>
             ) : (
               <div className="space-y-2 max-h-80 overflow-y-auto">
@@ -234,12 +234,12 @@ export default function AutomationsPage() {
         <div className="panel">
           <div className="panel-header">
             <h3 className="section-title flex items-center gap-2">
-              <Zap size={14} /> Skill Executions (30 days)
+              <Zap size={14} /> Lượt chạy kỹ năng (30 ngày)
             </h3>
           </div>
           <div className="panel-body">
             {skill_executions.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No execution data yet</p>
+              <p className="text-sm text-muted-foreground text-center py-8">Chưa có dữ liệu thực thi</p>
             ) : (
               <div className="space-y-2">
                 {skill_executions.map(exec => {
@@ -276,7 +276,7 @@ export default function AutomationsPage() {
         <div className="panel">
           <div className="panel-header">
             <h3 className="section-title flex items-center gap-2">
-              <Clock size={14} /> Today&apos;s Activity by Hour
+              <Clock size={14} /> Hoạt động hôm nay theo giờ
             </h3>
           </div>
           <div className="panel-body">
