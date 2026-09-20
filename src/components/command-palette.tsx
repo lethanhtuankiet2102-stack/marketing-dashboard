@@ -49,7 +49,7 @@ export function CommandPalette() {
   const realOnly = useDashboard(s => s.realOnly);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [results, setKết quả] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -63,7 +63,7 @@ export function CommandPalette() {
           const next = !o;
           if (next) {
             setQuery('');
-            setKết quả([]);
+            setResults([]);
             setActiveIndex(0);
           }
           return next;
@@ -85,10 +85,10 @@ export function CommandPalette() {
       fetch(`/api/search?q=${encodeURIComponent(query)}${realOnly ? '&real=true' : ''}`)
         .then(r => r.json())
         .then(data => {
-          setKết quả(data.results || []);
+          setResults(data.results || []);
           setActiveIndex(0);
         })
-        .catch(() => setKết quả([]))
+        .catch(() => setResults([]))
         .finally(() => setLoading(false));
     }, 200);
     return () => clearTimeout(timer);
@@ -103,7 +103,7 @@ export function CommandPalette() {
     [query],
   );
 
-  const visibleKết quả = useMemo(
+  const visibleResults = useMemo(
     () => (query.length >= 2 ? results : []),
     [query, results],
   );
@@ -112,9 +112,9 @@ export function CommandPalette() {
   const allItems = useMemo(
     () => [
       ...filteredNav.map(n => ({ type: 'nav' as const, ...n })),
-      ...visibleKết quả.map(r => ({ type: 'result' as const, ...r })),
+      ...visibleResults.map(r => ({ type: 'result' as const, ...r })),
     ],
-    [filteredNav, visibleKết quả],
+    [filteredNav, visibleResults],
   );
 
   const navigate = (index: number) => {
@@ -209,12 +209,12 @@ export function CommandPalette() {
             )}
 
             {/* Search results section */}
-            {visibleKết quả.length > 0 && (
+            {visibleResults.length > 0 && (
               <div className="px-3 py-2 border-t border-border/20">
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground px-1 mb-1">
                   Kết quả
                 </div>
-                {visibleKết quả.map((result, i) => {
+                {visibleResults.map((result, i) => {
                   const Icon = CATEGORY_ICONS[result.category] || List;
                   const idx = filteredNav.length + i;
                   return (
@@ -255,7 +255,7 @@ export function CommandPalette() {
             )}
 
             {/* Empty state */}
-            {!loading && query.length >= 2 && visibleKết quả.length === 0 && filteredNav.length === 0 && (
+            {!loading && query.length >= 2 && visibleResults.length === 0 && filteredNav.length === 0 && (
               <div className="px-4 py-6 text-center text-sm text-muted-foreground">
                 No results for &ldquo;{query}&rdquo;
               </div>
