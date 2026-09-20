@@ -4,8 +4,8 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 function LoginForm() {
-  const [username, setTên đăng nhập] = useState('');
-  const [password, setMật khẩu] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleEnabled, setGoogleEnabled] = useState(false);
@@ -62,7 +62,7 @@ function LoginForm() {
           id="username"
           type="text"
           value={username}
-          onChange={(e) => setTên đăng nhập(e.target.value)}
+          onChange={(e) => setUsername(e.target.value)}
           className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
           autoFocus
           required
@@ -77,7 +77,7 @@ function LoginForm() {
           id="password"
           type="password"
           value={password}
-          onChange={(e) => setMật khẩu(e.target.value)}
+          onChange={(e) => setPassword(e.target.value)}
           className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
           required
         />
