@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Mail, Linkedin, Clock, ChevronLeft, ChevronRight, Check, XCircle, Save, X, Ban, Pause, Play, Trash2, Edit3, Loader2, ChevronDown, ChevronUp, Send, CheckCircle, MessageSquare, Eye, CalendarCheck, Star, CircleDot } from 'lucide-react';
+import { Mail, Linkedin, Clock, ChevronLeft, ChevronRight, Check, XCircle, Lưu, X, Ban, Pause, Play, Trash2, Chỉnh sửa3, Loader2, ChevronDown, ChevronUp, Send, CheckCircle, MessageSquare, Eye, CalendarCheck, Star, CircleDot } from 'lucide-react';
 import { useSmartPoll } from '@/hooks/use-smart-poll';
-import { timeAgo } from '@/lib/utils';
+import { timeAgo, STATUS_LABELS } from '@/lib/utils';
 import type { Lead, Sequence } from '@/types';
 
 const STAGES = ['new', 'validated', 'approved', 'contacted', 'replied', 'interested', 'booked', 'qualified'] as const;
@@ -33,7 +33,7 @@ export function LeadDetailPanel({
   id,
   onClose,
   onMutate,
-  canEdit,
+  canChỉnh sửa,
   nowMs,
   slaStaleDays,
   slaNewDays,
@@ -42,21 +42,21 @@ export function LeadDetailPanel({
   id: string;
   onClose: () => void;
   onMutate: () => void;
-  canEdit: boolean;
+  canChỉnh sửa: boolean;
   nowMs: number | null;
   slaStaleDays: number;
   slaNewDays: number;
   variant?: LeadDetailPanelVariant;
 }) {
-  const [editingNotes, setEditingNotes] = useState(false);
-  const [notesValue, setNotesValue] = useState('');
+  const [editingGhi chú, setChỉnh sửaingGhi chú] = useState(false);
+  const [notesValue, setGhi chúValue] = useState('');
   const [nextAction, setNextAction] = useState('');
   const [expandedSeq, setExpandedSeq] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [detailRefresh, setDetailRefresh] = useState(0);
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [profileDraft, setProfileDraft] = useState({
+  const [editingHồ sơ, setChỉnh sửaingHồ sơ] = useState(false);
+  const [profileDraft, setHồ sơDraft] = useState({
     first_name: '',
     last_name: '',
     title: '',
@@ -79,13 +79,13 @@ export function LeadDetailPanel({
 
   useEffect(() => {
     if (data?.lead?.notes !== undefined) {
-      setNotesValue(data.lead.notes || '');
+      setGhi chúValue(data.lead.notes || '');
     }
     if (data?.lead?.next_action_at) {
       setNextAction(data.lead.next_action_at.split('T')[0]);
     }
-    if (!editingProfile && data?.lead) {
-      setProfileDraft({
+    if (!editingHồ sơ && data?.lead) {
+      setHồ sơDraft({
         first_name: data.lead.first_name || '',
         last_name: data.lead.last_name || '',
         title: data.lead.title || '',
@@ -98,7 +98,7 @@ export function LeadDetailPanel({
         score: typeof data.lead.score === 'number' ? String(data.lead.score) : '',
       });
     }
-  }, [data?.lead, editingProfile]);
+  }, [data?.lead, editingHồ sơ]);
 
   function showFeedback(type: 'success' | 'error', msg: string) {
     setFeedback({ type, msg });
@@ -106,7 +106,7 @@ export function LeadDetailPanel({
   }
 
   async function patchLead(updates: Record<string, unknown>) {
-    if (!canEdit) return;
+    if (!canChỉnh sửa) return;
     setSaving(true);
     try {
       const res = await fetch('/api/crm', {
@@ -115,18 +115,18 @@ export function LeadDetailPanel({
         body: JSON.stringify({ id, ...updates }),
       });
       if (!res.ok) throw new Error('Update failed');
-      showFeedback('success', 'Updated');
+      showFeedback('success', 'Đã cập nhật');
       setDetailRefresh(k => k + 1);
       onMutate();
     } catch {
-      showFeedback('error', 'Failed to update');
+      showFeedback('error', 'Cập nhật thất bại');
     } finally {
       setSaving(false);
     }
   }
 
-  async function saveProfile() {
-    if (!canEdit) return;
+  async function saveHồ sơ() {
+    if (!canChỉnh sửa) return;
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {
@@ -150,20 +150,20 @@ export function LeadDetailPanel({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Update failed');
-      showFeedback('success', 'Updated');
-      setEditingProfile(false);
+      showFeedback('success', 'Đã cập nhật');
+      setChỉnh sửaingHồ sơ(false);
       setDetailRefresh(k => k + 1);
       onMutate();
     } catch {
-      showFeedback('error', 'Failed to update');
+      showFeedback('error', 'Cập nhật thất bại');
     } finally {
       setSaving(false);
     }
   }
 
   async function deleteLead() {
-    if (!canEdit) return;
-    if (!confirm('Delete this lead? This will also delete its sequences.')) return;
+    if (!canChỉnh sửa) return;
+    if (!confirm('Xóa lead này? Các chuỗi email liên quan cũng sẽ bị xóa.')) return;
     setSaving(true);
     try {
       const res = await fetch('/api/leads', {
@@ -173,18 +173,18 @@ export function LeadDetailPanel({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Delete failed');
-      showFeedback('success', 'Deleted');
+      showFeedback('success', 'Đã xóa');
       onClose();
       onMutate();
     } catch {
-      showFeedback('error', 'Failed to delete');
+      showFeedback('error', 'Xóa thất bại');
     } finally {
       setSaving(false);
     }
   }
 
   async function patchSequence(seqId: string, status: string) {
-    if (!canEdit) return;
+    if (!canChỉnh sửa) return;
     setSaving(true);
     try {
       const res = await fetch('/api/crm', {
@@ -193,11 +193,11 @@ export function LeadDetailPanel({
         body: JSON.stringify({ id: seqId, type: 'sequence', status }),
       });
       if (!res.ok) throw new Error('Update failed');
-      showFeedback('success', status === 'approved' ? 'Email approved' : 'Email rejected');
+      showFeedback('success', status === 'approved' ? 'Email đã duyệt' : 'Email đã từ chối');
       setDetailRefresh(k => k + 1);
       onMutate();
     } catch {
-      showFeedback('error', 'Failed to update');
+      showFeedback('error', 'Cập nhật thất bại');
     } finally {
       setSaving(false);
     }
@@ -220,9 +220,9 @@ export function LeadDetailPanel({
     return (
       <div className={`${wrapperClass} p-6 text-center space-y-2`}>
         <XCircle size={24} className="mx-auto text-destructive/60" />
-        <p className="text-sm text-muted-foreground">Failed to load lead</p>
+        <p className="text-sm text-muted-foreground">Không tải được hồ sơ lead</p>
         <button onClick={() => setDetailRefresh(k => k + 1)} className="btn btn-ghost btn-sm">
-          Retry
+          Thử lại
         </button>
       </div>
     );
@@ -230,9 +230,9 @@ export function LeadDetailPanel({
 
   const { lead, sequences, timeline } = data;
   const isPaused = (lead as { pause_outreach?: number }).pause_outreach === 1;
-  const currentStageIdx = STAGES.indexOf(lead.status as typeof STAGES[number]);
-  const canAdvance = currentStageIdx >= 0 && currentStageIdx < STAGES.length - 1;
-  const canRevert = currentStageIdx > 0;
+  const currentGiai đoạnIdx = STAGES.indexOf(lead.status as typeof STAGES[number]);
+  const canAdvance = currentGiai đoạnIdx >= 0 && currentGiai đoạnIdx < STAGES.length - 1;
+  const canRevert = currentGiai đoạnIdx > 0;
   const staleDays = (nowMs != null && lead.last_touch_at)
     ? Math.floor((nowMs - new Date(lead.last_touch_at).getTime()) / (1000 * 60 * 60 * 24))
     : null;
@@ -264,22 +264,22 @@ export function LeadDetailPanel({
             <Icon size={14} className="text-muted-foreground shrink-0" />
           </div>
           <p className="text-xs text-muted-foreground truncate">{lead.title} at {lead.company}</p>
-          {!canEdit && <p className="text-[10px] text-muted-foreground mt-0.5">Read-only</p>}
+          {!canChỉnh sửa && <p className="text-[10px] text-muted-foreground mt-0.5">Chỉ xem</p>}
         </div>
         <div className="flex items-center gap-2">
-          {canEdit && (
+          {canChỉnh sửa && (
             <button
               onClick={deleteLead}
               disabled={saving}
               className="text-destructive hover:text-destructive/80 disabled:opacity-50"
-              title="Delete lead"
-              aria-label="Delete lead"
+              title="Xóa lead"
+              aria-label="Xóa lead"
               type="button"
             >
               <Trash2 size={16} />
             </button>
           )}
-          <button type="button" aria-label="Close lead" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button type="button" aria-label="Đóng hồ sơ" onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X size={16} />
           </button>
         </div>
@@ -307,59 +307,59 @@ export function LeadDetailPanel({
           )}
         </div>
 
-        {/* Profile */}
+        {/* Hồ sơ */}
         <div className="rounded-lg border border-border/30 p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <h4 className="text-xs font-medium text-muted-foreground">Profile</h4>
-            {!editingProfile && canEdit && (
+            <h4 className="text-xs font-medium text-muted-foreground">Hồ sơ</h4>
+            {!editingHồ sơ && canChỉnh sửa && (
               <button
                 type="button"
-                onClick={() => setEditingProfile(true)}
+                onClick={() => setChỉnh sửaingHồ sơ(true)}
                 className="text-[10px] text-primary hover:underline"
               >
-                Edit
+                Chỉnh sửa
               </button>
             )}
           </div>
 
-          {editingProfile ? (
+          {editingHồ sơ ? (
             <div className="space-y-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input name="first_name" aria-label="First name" autoComplete="given-name" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="First name" value={profileDraft.first_name} onChange={(e) => setProfileDraft(v => ({ ...v, first_name: e.target.value }))} />
-                <input name="last_name" aria-label="Last name" autoComplete="family-name" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Last name" value={profileDraft.last_name} onChange={(e) => setProfileDraft(v => ({ ...v, last_name: e.target.value }))} />
-                <input name="title" aria-label="Title" autoComplete="organization-title" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Title" value={profileDraft.title} onChange={(e) => setProfileDraft(v => ({ ...v, title: e.target.value }))} />
-                <input name="company" aria-label="Company" autoComplete="organization" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Company" value={profileDraft.company} onChange={(e) => setProfileDraft(v => ({ ...v, company: e.target.value }))} />
-                <input name="email" aria-label="Email" autoComplete="email" type="email" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Email" value={profileDraft.email} onChange={(e) => setProfileDraft(v => ({ ...v, email: e.target.value }))} />
-                <input name="linkedin_url" aria-label="LinkedIn URL" autoComplete="url" type="url" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="LinkedIn URL" value={profileDraft.linkedin_url} onChange={(e) => setProfileDraft(v => ({ ...v, linkedin_url: e.target.value }))} />
-                <input name="source" aria-label="Source" autoComplete="off" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Source" value={profileDraft.source} onChange={(e) => setProfileDraft(v => ({ ...v, source: e.target.value }))} />
-                <input name="industry_segment" aria-label="Industry segment" autoComplete="off" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Industry segment" value={profileDraft.industry_segment} onChange={(e) => setProfileDraft(v => ({ ...v, industry_segment: e.target.value }))} />
-                <input name="company_size" aria-label="Company size" autoComplete="off" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Company size" value={profileDraft.company_size} onChange={(e) => setProfileDraft(v => ({ ...v, company_size: e.target.value }))} />
-                <input name="score" aria-label="Score" inputMode="numeric" type="number" min={0} max={100} className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Score (0-100)" value={profileDraft.score} onChange={(e) => setProfileDraft(v => ({ ...v, score: e.target.value }))} />
+                <input name="first_name" aria-label="Tên" autoComplete="given-name" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Tên" value={profileDraft.first_name} onChange={(e) => setHồ sơDraft(v => ({ ...v, first_name: e.target.value }))} />
+                <input name="last_name" aria-label="Họ" autoComplete="family-name" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Họ" value={profileDraft.last_name} onChange={(e) => setHồ sơDraft(v => ({ ...v, last_name: e.target.value }))} />
+                <input name="title" aria-label="Chức danh" autoComplete="organization-title" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Chức danh" value={profileDraft.title} onChange={(e) => setHồ sơDraft(v => ({ ...v, title: e.target.value }))} />
+                <input name="company" aria-label="Doanh nghiệp" autoComplete="organization" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Doanh nghiệp" value={profileDraft.company} onChange={(e) => setHồ sơDraft(v => ({ ...v, company: e.target.value }))} />
+                <input name="email" aria-label="Email" autoComplete="email" type="email" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Email" value={profileDraft.email} onChange={(e) => setHồ sơDraft(v => ({ ...v, email: e.target.value }))} />
+                <input name="linkedin_url" aria-label="LinkedIn URL" autoComplete="url" type="url" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="LinkedIn URL" value={profileDraft.linkedin_url} onChange={(e) => setHồ sơDraft(v => ({ ...v, linkedin_url: e.target.value }))} />
+                <input name="source" aria-label="Nguồn" autoComplete="off" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Nguồn" value={profileDraft.source} onChange={(e) => setHồ sơDraft(v => ({ ...v, source: e.target.value }))} />
+                <input name="industry_segment" aria-label="Ngành" autoComplete="off" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Ngành" value={profileDraft.industry_segment} onChange={(e) => setHồ sơDraft(v => ({ ...v, industry_segment: e.target.value }))} />
+                <input name="company_size" aria-label="Doanh nghiệp size" autoComplete="off" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Doanh nghiệp size" value={profileDraft.company_size} onChange={(e) => setHồ sơDraft(v => ({ ...v, company_size: e.target.value }))} />
+                <input name="score" aria-label="Điểm" inputMode="numeric" type="number" min={0} max={100} className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Điểm (0-100)" value={profileDraft.score} onChange={(e) => setHồ sơDraft(v => ({ ...v, score: e.target.value }))} />
               </div>
               <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm text-xs"
-                  onClick={() => { setEditingProfile(false); setDetailRefresh(k => k + 1); }}
+                  onClick={() => { setChỉnh sửaingHồ sơ(false); setDetailRefresh(k => k + 1); }}
                   disabled={saving}
                 >
-                  Cancel
+                  Hủy
                 </button>
                 <button
                   type="button"
                   className="btn btn-sm text-xs bg-primary/15 text-primary hover:bg-primary/25"
-                  onClick={saveProfile}
+                  onClick={saveHồ sơ}
                   disabled={saving}
                 >
-                  <Save size={12} /> Save
+                  <Lưu size={12} /> Lưu
                 </button>
               </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="flex justify-between gap-2"><span className="text-muted-foreground">Source</span><span className="truncate">{lead.source || '—'}</span></div>
-              <div className="flex justify-between gap-2"><span className="text-muted-foreground">Industry</span><span className="truncate">{lead.industry_segment || '—'}</span></div>
-              <div className="flex justify-between gap-2"><span className="text-muted-foreground">Company Size</span><span className="truncate">{lead.company_size || '—'}</span></div>
+              <div className="flex justify-between gap-2"><span className="text-muted-foreground">Nguồn</span><span className="truncate">{lead.source || '—'}</span></div>
+              <div className="flex justify-between gap-2"><span className="text-muted-foreground">Ngành</span><span className="truncate">{lead.industry_segment || '—'}</span></div>
+              <div className="flex justify-between gap-2"><span className="text-muted-foreground">Doanh nghiệp Size</span><span className="truncate">{lead.company_size || '—'}</span></div>
               <div className="flex justify-between gap-2"><span className="text-muted-foreground">Email</span><span className="truncate">{lead.email || '—'}</span></div>
             </div>
           )}
@@ -369,46 +369,46 @@ export function LeadDetailPanel({
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-muted/30 rounded-lg p-2 text-center">
             <div className="text-sm font-semibold">{lead.score ?? '\u2014'}</div>
-            <div className="text-[9px] text-muted-foreground uppercase">Score</div>
+            <div className="text-[9px] text-muted-foreground uppercase">Điểm</div>
           </div>
           <div className="bg-muted/30 rounded-lg p-2 text-center">
             <div className="text-sm font-semibold capitalize">{lead.tier || '\u2014'}</div>
-            <div className="text-[9px] text-muted-foreground uppercase">Tier</div>
+            <div className="text-[9px] text-muted-foreground uppercase">Nhóm</div>
           </div>
           <div className="bg-muted/30 rounded-lg p-2 text-center">
-            <div className="text-sm font-semibold capitalize">{lead.status}</div>
-            <div className="text-[9px] text-muted-foreground uppercase">Stage</div>
+            <div className="text-sm font-semibold">{STATUS_LABELS[lead.status] || lead.status}</div>
+            <div className="text-[9px] text-muted-foreground uppercase">Giai đoạn</div>
           </div>
         </div>
 
-        {/* Stage Controls */}
+        {/* Giai đoạn Controls */}
         <div className="flex items-center gap-2">
           <button
-            disabled={!canEdit || !canRevert || saving}
-            onClick={() => patchLead({ status: STAGES[currentStageIdx - 1] })}
+            disabled={!canChỉnh sửa || !canRevert || saving}
+            onClick={() => patchLead({ status: STAGES[currentGiai đoạnIdx - 1] })}
             className="btn btn-ghost btn-sm flex-1 disabled:opacity-30"
-            title="Previous stage"
+            title="Giai đoạn trước"
             type="button"
           >
             <ChevronLeft size={14} />
-            {canRevert ? STAGES[currentStageIdx - 1] : 'Back'}
+            {canRevert ? STAGES[currentGiai đoạnIdx - 1] : 'Back'}
           </button>
           <button
-            disabled={!canEdit || !canAdvance || saving}
-            onClick={() => patchLead({ status: STAGES[currentStageIdx + 1] })}
+            disabled={!canChỉnh sửa || !canAdvance || saving}
+            onClick={() => patchLead({ status: STAGES[currentGiai đoạnIdx + 1] })}
             className="btn btn-sm flex-1 bg-primary/15 text-primary hover:bg-primary/25 disabled:opacity-30"
-            title="Advance stage"
+            title="Giai đoạn tiếp theo"
             type="button"
           >
-            {canAdvance ? STAGES[currentStageIdx + 1] : 'Done'}
+            {canAdvance ? STAGES[currentGiai đoạnIdx + 1] : 'Done'}
             <ChevronRight size={14} />
           </button>
           {lead.status !== 'disqualified' && lead.status !== 'rejected' && (
             <button
-              disabled={!canEdit || saving}
+              disabled={!canChỉnh sửa || saving}
               onClick={() => patchLead({ status: 'disqualified' })}
               className="btn btn-ghost btn-sm text-destructive hover:bg-destructive/10"
-              title="Disqualify"
+              title="Đánh dấu không phù hợp"
               type="button"
             >
               <Ban size={14} />
@@ -420,7 +420,7 @@ export function LeadDetailPanel({
         <div className="grid grid-cols-2 gap-2 text-xs">
           {lead.last_touch_at && (
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Last Touch</span>
+              <span className="text-muted-foreground">Lần chăm sóc gần nhất</span>
               <span className={`px-2 py-0.5 rounded-full ${
                 staleDays !== null && staleDays > slaStaleDays
                   ? 'bg-destructive/15 text-destructive'
@@ -434,7 +434,7 @@ export function LeadDetailPanel({
           )}
           {!lead.last_touch_at && newDays !== null && (
             <div className="flex justify-between">
-              <span className="text-muted-foreground">New Lead SLA</span>
+              <span className="text-muted-foreground">SLA lead mới</span>
               <span className={`px-2 py-0.5 rounded-full ${
                 newDays > slaNewDays ? 'bg-destructive/15 text-destructive' : 'bg-warning/15 text-warning'
               }`}>
@@ -444,74 +444,74 @@ export function LeadDetailPanel({
           )}
 
           <div className="flex justify-between items-center gap-2 col-span-2">
-            <span className="text-muted-foreground">Next Action</span>
+            <span className="text-muted-foreground">Lịch chăm sóc tiếp theo</span>
             <input
               type="date"
               value={nextAction}
               onChange={e => setNextAction(e.target.value)}
               className="bg-muted/30 rounded px-2 py-0.5 text-[10px]"
-              disabled={!canEdit || saving}
+              disabled={!canChỉnh sửa || saving}
             />
             <button
               onClick={() => patchLead({ next_action_at: nextAction ? new Date(`${nextAction}T00:00:00.000Z`).toISOString() : null })}
-              disabled={!canEdit || saving}
+              disabled={!canChỉnh sửa || saving}
               className="btn btn-ghost btn-sm text-[10px]"
               type="button"
             >
-              Save
+              Lưu
             </button>
           </div>
         </div>
 
-        {/* Notes */}
+        {/* Ghi chú */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <Edit3 size={12} /> Notes
+              <Chỉnh sửa3 size={12} /> Ghi chú
             </h4>
-            {!editingNotes && canEdit && (
+            {!editingGhi chú && canChỉnh sửa && (
               <button
-                onClick={() => { setEditingNotes(true); setNotesValue(lead.notes || ''); }}
+                onClick={() => { setChỉnh sửaingGhi chú(true); setGhi chúValue(lead.notes || ''); }}
                 className="text-[10px] text-primary hover:underline"
                 type="button"
               >
-                Edit
+                Chỉnh sửa
               </button>
             )}
           </div>
-          {editingNotes ? (
+          {editingGhi chú ? (
             <div className="space-y-2">
               <textarea
                 value={notesValue}
-                onChange={e => setNotesValue(e.target.value)}
-                placeholder="Add notes about this lead..."
+                onChange={e => setGhi chúValue(e.target.value)}
+                placeholder="Thêm ghi chú về lead..."
                 rows={3}
                 className="w-full text-xs resize-none"
               />
               <div className="flex items-center gap-2 justify-end">
-                <button onClick={() => setEditingNotes(false)} className="btn btn-ghost btn-sm text-xs" type="button">Cancel</button>
+                <button onClick={() => setChỉnh sửaingGhi chú(false)} className="btn btn-ghost btn-sm text-xs" type="button">Hủy</button>
                 <button
-                  onClick={() => { patchLead({ notes: notesValue }); setEditingNotes(false); }}
-                  disabled={!canEdit || saving}
+                  onClick={() => { patchLead({ notes: notesValue }); setChỉnh sửaingGhi chú(false); }}
+                  disabled={!canChỉnh sửa || saving}
                   className="btn btn-sm text-xs bg-primary/15 text-primary hover:bg-primary/25"
                   type="button"
                 >
-                  <Save size={12} /> Save
+                  <Lưu size={12} /> Lưu
                 </button>
               </div>
             </div>
           ) : (
             <div className="bg-muted/20 rounded-lg p-3 text-xs min-h-[2rem]">
-              {lead.notes || <span className="text-muted-foreground italic">No notes yet</span>}
+              {lead.notes || <span className="text-muted-foreground italic">Chưa có ghi chú</span>}
             </div>
           )}
         </div>
 
-        {/* Timeline */}
+        {/* Lịch sử */}
         {timeline.length > 0 && (
           <div>
             <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
-              <Clock size={12} /> Timeline
+              <Clock size={12} /> Lịch sử
             </h4>
             <div className="space-y-3 relative before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-px before:bg-border">
               {timeline.map(event => (
@@ -536,7 +536,7 @@ export function LeadDetailPanel({
           <div>
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                <Send size={12} /> Email Sequences ({sequences.length})
+                <Send size={12} /> Chuỗi email ({sequences.length})
               </h4>
               <div className="flex items-center gap-2 text-[10px]">
                 {sentCount > 0 && <span className="text-success">{sentCount} sent</span>}
@@ -564,7 +564,7 @@ export function LeadDetailPanel({
                   >
                     <div className="truncate text-left">
                       <span className="text-muted-foreground">Step {seq.step}: </span>
-                      {seq.subject || 'No subject'}
+                      {seq.subject || 'Không có tiêu đề'}
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-2">
                       <span className={`${
@@ -587,10 +587,10 @@ export function LeadDetailPanel({
                           {seq.body}
                         </div>
                       ) : (
-                        <div className="text-xs text-muted-foreground italic">No body</div>
+                        <div className="text-xs text-muted-foreground italic">Chưa có nội dung</div>
                       )}
 
-                      {seq.status === 'pending_approval' && canEdit && (
+                      {seq.status === 'pending_approval' && canChỉnh sửa && (
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => patchSequence(seq.id, 'cancelled')}
@@ -598,7 +598,7 @@ export function LeadDetailPanel({
                             className="btn btn-ghost btn-sm text-xs text-destructive hover:bg-destructive/10"
                             type="button"
                           >
-                            <XCircle size={12} /> Reject
+                            <XCircle size={12} /> Từ chối
                           </button>
                           <button
                             onClick={() => patchSequence(seq.id, 'approved')}
@@ -606,7 +606,7 @@ export function LeadDetailPanel({
                             className="btn btn-sm text-xs bg-success/15 text-success hover:bg-success/25"
                             type="button"
                           >
-                            <Check size={12} /> Approve
+                            <Check size={12} /> Duyệt
                           </button>
                         </div>
                       )}
@@ -622,12 +622,12 @@ export function LeadDetailPanel({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            disabled={!canEdit || saving}
+            disabled={!canChỉnh sửa || saving}
             onClick={() => patchLead({ pause_outreach: !isPaused })}
             className="btn btn-ghost btn-sm"
           >
             {isPaused ? <Play size={14} /> : <Pause size={14} />}
-            {isPaused ? 'Resume outreach' : 'Pause outreach'}
+            {isPaused ? 'Tiếp tục chăm sóc' : 'Tạm dừng chăm sóc'}
           </button>
         </div>
       </div>

@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { TrendChart } from '@/components/ui/trend-chart';
+import { Xu hướngChart } from '@/components/ui/trend-chart';
 import { useDashboard } from '@/store';
-import type { DailyMetrics, WeeklyKPI } from '@/types';
+import type { DailyChỉ sốs, WeeklyKPI } from '@/types';
 
 // 90-day targets from the plan
 const TARGETS = {
@@ -16,7 +16,7 @@ const TARGETS = {
 };
 
 export default function KPIsPage() {
-  const [daily, setDaily] = useState<DailyMetrics[]>([]);
+  const [daily, setDaily] = useState<DailyChỉ sốs[]>([]);
   const [weekly, setWeekly] = useState<WeeklyKPI[]>([]);
   const { realOnly } = useDashboard();
 
@@ -35,36 +35,36 @@ export default function KPIsPage() {
   return (
     <div className="space-y-6 animate-in">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-semibold">KPIs</h1>
+        <h1 className="text-xl font-semibold">KPI kinh doanh & marketing</h1>
         <div className="text-xs text-muted-foreground">
-          Weeks tracked <span className="font-mono text-foreground">{weekly.length}</span>
+          Số tuần theo dõi <span className="font-mono text-foreground">{weekly.length}</span>
         </div>
       </div>
 
       {/* Weekly metrics table */}
       <div className="panel">
         <div className="panel-header">
-          <h3 className="section-title">Weekly Metrics</h3>
+          <h3 className="section-title">Chỉ số theo tuần</h3>
         </div>
         <div className="panel-body !p-0">
         <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Metric</th>
-                <th>This Week</th>
-                <th>Last Week</th>
-                <th>90-Day Target</th>
-                <th>Trend</th>
+                <th>Chỉ số</th>
+                <th>Tuần này</th>
+                <th>Tuần trước</th>
+                <th>Mục tiêu 90 ngày</th>
+                <th>Xu hướng</th>
               </tr>
             </thead>
             <tbody>
-              <MetricRow label="Impressions" current={thisWeek?.impressions} prev={lastWeek?.impressions} target={TARGETS.impressions} />
-              <MetricRow label="Engagement Rate" current={thisWeek?.engagement_rate} prev={lastWeek?.engagement_rate} target={TARGETS.engagement_rate} suffix="%" />
-              <MetricRow label="Leads Added" current={thisWeek?.leads_added} prev={lastWeek?.leads_added} target={TARGETS.leads_added} />
-              <MetricRow label="Emails Sent" current={thisWeek?.emails_sent} prev={lastWeek?.emails_sent} target={TARGETS.emails_sent} />
-              <MetricRow label="Reply Rate" current={thisWeek?.reply_rate} prev={lastWeek?.reply_rate} target={TARGETS.reply_rate} suffix="%" />
-              <MetricRow label="Calls Booked" current={thisWeek?.calls_booked} prev={lastWeek?.calls_booked} target={TARGETS.calls_booked} />
+              <Chỉ sốRow label="Lượt hiển thị" current={thisWeek?.impressions} prev={lastWeek?.impressions} target={TARGETS.impressions} />
+              <Chỉ sốRow label="Tỷ lệ tương tác" current={thisWeek?.engagement_rate} prev={lastWeek?.engagement_rate} target={TARGETS.engagement_rate} suffix="%" />
+              <Chỉ sốRow label="Lead mới" current={thisWeek?.leads_added} prev={lastWeek?.leads_added} target={TARGETS.leads_added} />
+              <Chỉ sốRow label="Email đã gửi" current={thisWeek?.emails_sent} prev={lastWeek?.emails_sent} target={TARGETS.emails_sent} />
+              <Chỉ sốRow label="Tỷ lệ phản hồi" current={thisWeek?.reply_rate} prev={lastWeek?.reply_rate} target={TARGETS.reply_rate} suffix="%" />
+              <Chỉ sốRow label="Lịch hẹn" current={thisWeek?.calls_booked} prev={lastWeek?.calls_booked} target={TARGETS.calls_booked} />
             </tbody>
           </table>
         </div>
@@ -74,19 +74,19 @@ export default function KPIsPage() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="panel">
-          <div className="panel-header"><h3 className="section-title">Impressions (weekly)</h3></div>
+          <div className="panel-header"><h3 className="section-title">Lượt hiển thị (weekly)</h3></div>
           <div className="panel-body">
-          <TrendChart
+          <Xu hướngChart
             data={weeklyReversed.map(w => ({ week: w.week, impressions: w.impressions }))}
             xKey="week"
-            lines={[{ key: 'impressions', color: 'var(--primary)', label: 'Impressions' }]}
+            lines={[{ key: 'impressions', color: 'var(--primary)', label: 'Lượt hiển thị' }]}
           />
           </div>
         </div>
         <div className="panel">
-          <div className="panel-header"><h3 className="section-title">Engagement Rate (weekly)</h3></div>
+          <div className="panel-header"><h3 className="section-title">Tỷ lệ tương tác (weekly)</h3></div>
           <div className="panel-body">
-          <TrendChart
+          <Xu hướngChart
             data={weeklyReversed.map(w => ({ week: w.week, rate: w.engagement_rate }))}
             xKey="week"
             lines={[{ key: 'rate', color: 'var(--success)', label: 'Engagement %' }]}
@@ -94,9 +94,9 @@ export default function KPIsPage() {
           </div>
         </div>
         <div className="panel">
-          <div className="panel-header"><h3 className="section-title">Leads & Sends (weekly)</h3></div>
+          <div className="panel-header"><h3 className="section-title">Lead & email theo tuần</h3></div>
           <div className="panel-body">
-          <TrendChart
+          <Xu hướngChart
             data={weeklyReversed.map(w => ({ week: w.week, leads: w.leads_added, sends: w.emails_sent }))}
             xKey="week"
             lines={[
@@ -107,9 +107,9 @@ export default function KPIsPage() {
           </div>
         </div>
         <div className="panel">
-          <div className="panel-header"><h3 className="section-title">Reply Rate (weekly)</h3></div>
+          <div className="panel-header"><h3 className="section-title">Tỷ lệ phản hồi (weekly)</h3></div>
           <div className="panel-body">
-          <TrendChart
+          <Xu hướngChart
             data={weeklyReversed.map(w => ({ week: w.week, reply: w.reply_rate }))}
             xKey="week"
             lines={[{ key: 'reply', color: 'var(--destructive)', label: 'Reply %' }]}
@@ -121,14 +121,14 @@ export default function KPIsPage() {
       {/* 90-day progress */}
       <div className="panel">
         <div className="panel-header">
-          <h3 className="section-title">90-Day Goal Progress</h3>
+          <h3 className="section-title">Tiến độ mục tiêu 90 ngày</h3>
         </div>
         <div className="panel-body">
         <div className="space-y-3">
-          <ProgressBar label="Total Impressions" current={daily.reduce((s, d) => s + d.total_impressions, 0)} target={TARGETS.impressions} />
-          <ProgressBar label="Total Leads" current={daily.reduce((s, d) => s + d.discoveries, 0)} target={TARGETS.leads_added} />
-          <ProgressBar label="Total Sends" current={daily.reduce((s, d) => s + d.sends, 0)} target={TARGETS.emails_sent} />
-          <ProgressBar label="Calls Booked" current={0} target={TARGETS.calls_booked} />
+          <ProgressBar label="Total Lượt hiển thị" current={daily.reduce((s, d) => s + d.total_impressions, 0)} target={TARGETS.impressions} />
+          <ProgressBar label="Tổng lead" current={daily.reduce((s, d) => s + d.discoveries, 0)} target={TARGETS.leads_added} />
+          <ProgressBar label="Tổng email gửi" current={daily.reduce((s, d) => s + d.sends, 0)} target={TARGETS.emails_sent} />
+          <ProgressBar label="Lịch hẹn" current={0} target={TARGETS.calls_booked} />
         </div>
         </div>
       </div>
@@ -136,7 +136,7 @@ export default function KPIsPage() {
   );
 }
 
-function MetricRow({ label, current, prev, target, suffix = '' }: {
+function Chỉ sốRow({ label, current, prev, target, suffix = '' }: {
   label: string;
   current?: number;
   prev?: number;

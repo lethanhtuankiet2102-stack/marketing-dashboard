@@ -28,17 +28,17 @@ export default function ContentPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const updateStatus = async (id: string, status: string) => {
+  const updateTrạng thái = async (id: string, status: string) => {
     try {
       await fetch('/api/content', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status }),
       });
-      toast.success(status === 'ready' ? 'Content approved' : 'Content rejected');
+      toast.success(status === 'ready' ? 'Nội dung đã được duyệt' : 'Nội dung đã bị từ chối');
       load();
     } catch {
-      toast.error('Failed to update content status');
+      toast.error('Không thể cập nhật trạng thái nội dung');
     }
   };
 
@@ -48,18 +48,18 @@ export default function ContentPage() {
   return (
     <div className="space-y-6 animate-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Content</h1>
+        <h1 className="text-xl font-semibold">Nội dung</h1>
         <select
           className="px-3"
           value={filter}
           onChange={e => setFilter(e.target.value)}
         >
-          <option value="">All statuses</option>
-          <option value="draft">Draft</option>
-          <option value="pending_approval">Pending Approval</option>
-          <option value="ready">Ready</option>
-          <option value="published">Published</option>
-          <option value="rejected">Rejected</option>
+          <option value="">Tất cả trạng thái</option>
+          <option value="draft">Bản nháp</option>
+          <option value="pending_approval">Chờ duyệt</option>
+          <option value="ready">Sẵn sàng</option>
+          <option value="published">Đã đăng</option>
+          <option value="rejected">Từ chối</option>
         </select>
       </div>
 
@@ -83,34 +83,34 @@ export default function ContentPage() {
       {tab === 'queue' && (
         <div className="panel">
           <div className="panel-header">
-            <h3 className="section-title">Queue</h3>
+            <h3 className="section-title">Hàng chờ</h3>
           </div>
           <div className="panel-body !p-0">
           <DataTable
             columns={[
-              { key: 'platform', label: 'Platform', render: (r: ContentPost) => (
+              { key: 'platform', label: 'Nền tảng', render: (r: ContentPost) => (
                 <span className="font-mono text-xs uppercase">{r.platform}</span>
               )},
               { key: 'text_preview', label: 'Content', render: (r: ContentPost) => (
                 <span className="text-sm max-w-md truncate block">{r.text_preview || '\u2014'}</span>
               )},
-              { key: 'pillar', label: 'Pillar', render: (r: ContentPost) => (
+              { key: 'pillar', label: 'Chủ đề', render: (r: ContentPost) => (
                 r.pillar ? <span className="text-xs">{PILLAR_LABELS[r.pillar] || `P${r.pillar}`}</span> : <span>\u2014</span>
               )},
-              { key: 'format', label: 'Format', render: (r: ContentPost) => (
+              { key: 'format', label: 'Định dạng', render: (r: ContentPost) => (
                 <span className="text-xs text-muted-foreground">{r.format.replace(/_/g, ' ')}</span>
               )},
-              { key: 'status', label: 'Status', render: (r: ContentPost) => <Badge status={r.status} /> },
-              { key: 'scheduled_for', label: 'Scheduled', render: (r: ContentPost) => (
+              { key: 'status', label: 'Trạng thái', render: (r: ContentPost) => <Badge status={r.status} /> },
+              { key: 'scheduled_for', label: 'Lịch đăng', render: (r: ContentPost) => (
                 <span className="text-xs">{formatDateTime(r.scheduled_for)}</span>
               )},
               { key: 'actions', label: '', render: (r: ContentPost) => (
                 r.status === 'pending_approval' ? (
                   <div className="flex gap-1">
-                    <button className="btn btn-success btn-sm" onClick={() => updateStatus(r.id, 'ready')}>
+                    <button className="btn btn-success btn-sm" onClick={() => updateTrạng thái(r.id, 'ready')}>
                       <Check size={12} />
                     </button>
-                    <button className="btn btn-destructive btn-sm" onClick={() => updateStatus(r.id, 'rejected')}>
+                    <button className="btn btn-destructive btn-sm" onClick={() => updateTrạng thái(r.id, 'rejected')}>
                       <X size={12} />
                     </button>
                   </div>
@@ -119,7 +119,7 @@ export default function ContentPage() {
             ]}
             data={queue}
             keyField="id"
-            emptyMessage="No content in queue"
+            emptyMessage="Chưa có nội dung trong hàng chờ"
           />
           </div>
         </div>
@@ -128,14 +128,14 @@ export default function ContentPage() {
       {tab === 'calendar' && (
         <div className="panel">
           <div className="panel-header">
-            <h3 className="section-title">Published & Scheduled</h3>
+            <h3 className="section-title">Đã đăng & Lịch đăng</h3>
           </div>
           <div className="panel-body">
           <div className="grid grid-cols-7 gap-2">
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
+            {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(d => (
               <div key={d} className="text-center text-xs text-muted-foreground font-medium py-1">{d}</div>
             ))}
-            {generateCalendarDays(published).map((day, i) => (
+            {generateLịch nội dungDays(published).map((day, i) => (
               <div key={i} className={`min-h-16 p-1 rounded-lg border ${
                 day.posts.length > 0 ? 'border-primary/30 bg-primary/5' : 'border-border/30'
               }`}>
@@ -158,7 +158,7 @@ export default function ContentPage() {
         <div className="space-y-4">
           <div className="panel">
             <div className="panel-header">
-              <h3 className="section-title">Engagement by Post</h3>
+              <h3 className="section-title">Tương tác by Post</h3>
             </div>
             <div className="panel-body">
             <TrendChart
@@ -169,8 +169,8 @@ export default function ContentPage() {
               }))}
               xKey="label"
               lines={[
-                { key: 'impressions', color: 'var(--primary)', label: 'Impressions' },
-                { key: 'engagement', color: 'var(--success)', label: 'Engagement' },
+                { key: 'impressions', color: 'var(--primary)', label: 'Lượt hiển thị' },
+                { key: 'engagement', color: 'var(--success)', label: 'Tương tác' },
               ]}
               height={250}
             />
@@ -188,7 +188,7 @@ export default function ContentPage() {
                 { key: 'text_preview', label: 'Post', render: (r: ContentPost) => (
                   <span className="text-sm max-w-xs truncate block">{r.text_preview}</span>
                 )},
-                { key: 'impressions', label: 'Impressions', sortable: true },
+                { key: 'impressions', label: 'Lượt hiển thị', sortable: true },
                 { key: 'likes', label: 'Likes', sortable: true },
                 { key: 'replies', label: 'Replies', sortable: true },
                 { key: 'engagement_rate', label: 'Eng Rate', sortable: true, render: (r: ContentPost) => (
@@ -207,7 +207,7 @@ export default function ContentPage() {
   );
 }
 
-function generateCalendarDays(posts: ContentPost[]) {
+function generateLịch nội dungDays(posts: ContentPost[]) {
   const days: { label: string; posts: ContentPost[] }[] = [];
   const now = new Date();
   const startOfWeek = new Date(now);
