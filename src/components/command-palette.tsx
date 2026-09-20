@@ -18,17 +18,15 @@ interface SearchResult {
 }
 
 const NAV_ITEMS = [
-  { label: 'Overview', path: '/', icon: Gauge },
-  { label: 'Content', path: '/content', icon: PenLine },
-  { label: 'Engagement', path: '/engagement', icon: MessageCircle },
-  { label: 'Outreach', path: '/outreach', icon: Mail },
-  { label: 'Experiments', path: '/experiments', icon: FlaskConical },
-  { label: 'Research', path: '/research', icon: Search },
-  { label: 'KPIs', path: '/kpis', icon: BarChart3 },
-  { label: 'Analytics', path: '/analytics', icon: LineChart },
-  { label: 'Memory', path: '/memory', icon: BrainCircuit },
-  { label: 'Deploy', path: '/deploy', icon: Rocket },
-  { label: 'Activity', path: '/activity', icon: List },
+  { label: 'Tổng quan', path: '/', icon: Gauge },
+  { label: 'Khách hàng & Lead', path: '/crm', icon: User },
+  { label: 'Chăm sóc & Email', path: '/outreach', icon: Mail },
+  { label: 'Nội dung', path: '/content', icon: PenLine },
+  { label: 'Tương tác', path: '/engagement', icon: MessageCircle },
+  { label: 'KPI', path: '/kpis', icon: BarChart3 },
+  { label: 'Báo cáo', path: '/analytics', icon: LineChart },
+  { label: 'Tự động hóa', path: '/automations', icon: Radio },
+  { label: 'Hoạt động', path: '/activity', icon: List },
 ];
 
 const CATEGORY_ICONS: Record<string, typeof User> = {
@@ -40,7 +38,7 @@ const CATEGORY_ICONS: Record<string, typeof User> = {
 };
 
 const CATEGORY_ROUTES: Record<string, string> = {
-  lead: '/outreach',
+  lead: '/crm',
   content: '/content',
   signal: '/research',
   experiment: '/experiments',
@@ -51,7 +49,7 @@ export function CommandPalette() {
   const realOnly = useDashboard(s => s.realOnly);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setKết quả] = useState<SearchResult[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -65,7 +63,7 @@ export function CommandPalette() {
           const next = !o;
           if (next) {
             setQuery('');
-            setResults([]);
+            setKết quả([]);
             setActiveIndex(0);
           }
           return next;
@@ -87,10 +85,10 @@ export function CommandPalette() {
       fetch(`/api/search?q=${encodeURIComponent(query)}${realOnly ? '&real=true' : ''}`)
         .then(r => r.json())
         .then(data => {
-          setResults(data.results || []);
+          setKết quả(data.results || []);
           setActiveIndex(0);
         })
-        .catch(() => setResults([]))
+        .catch(() => setKết quả([]))
         .finally(() => setLoading(false));
     }, 200);
     return () => clearTimeout(timer);
@@ -105,7 +103,7 @@ export function CommandPalette() {
     [query],
   );
 
-  const visibleResults = useMemo(
+  const visibleKết quả = useMemo(
     () => (query.length >= 2 ? results : []),
     [query, results],
   );
@@ -114,9 +112,9 @@ export function CommandPalette() {
   const allItems = useMemo(
     () => [
       ...filteredNav.map(n => ({ type: 'nav' as const, ...n })),
-      ...visibleResults.map(r => ({ type: 'result' as const, ...r })),
+      ...visibleKết quả.map(r => ({ type: 'result' as const, ...r })),
     ],
-    [filteredNav, visibleResults],
+    [filteredNav, visibleKết quả],
   );
 
   const navigate = (index: number) => {
@@ -170,7 +168,7 @@ export function CommandPalette() {
                   }
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder="Search leads, content, signals... or navigate"
+                placeholder="Tìm lead, nội dung hoặc mở nhanh một trang..."
                 className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
                 autoFocus
               />
@@ -179,13 +177,13 @@ export function CommandPalette() {
             </kbd>
           </div>
 
-          {/* Results */}
+          {/* Kết quả */}
           <div className="max-h-[50vh] overflow-y-auto">
             {/* Navigation section */}
             {filteredNav.length > 0 && (
               <div className="px-3 py-2">
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground px-1 mb-1">
-                  Pages
+                  Trang
                 </div>
                 {filteredNav.map((nav, i) => {
                   const Icon = nav.icon;
@@ -211,12 +209,12 @@ export function CommandPalette() {
             )}
 
             {/* Search results section */}
-            {visibleResults.length > 0 && (
+            {visibleKết quả.length > 0 && (
               <div className="px-3 py-2 border-t border-border/20">
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground px-1 mb-1">
-                  Results
+                  Kết quả
                 </div>
-                {visibleResults.map((result, i) => {
+                {visibleKết quả.map((result, i) => {
                   const Icon = CATEGORY_ICONS[result.category] || List;
                   const idx = filteredNav.length + i;
                   return (
@@ -257,7 +255,7 @@ export function CommandPalette() {
             )}
 
             {/* Empty state */}
-            {!loading && query.length >= 2 && visibleResults.length === 0 && filteredNav.length === 0 && (
+            {!loading && query.length >= 2 && visibleKết quả.length === 0 && filteredNav.length === 0 && (
               <div className="px-4 py-6 text-center text-sm text-muted-foreground">
                 No results for &ldquo;{query}&rdquo;
               </div>

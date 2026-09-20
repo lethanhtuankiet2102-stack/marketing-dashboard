@@ -12,35 +12,33 @@ import { useSmartPoll } from '@/hooks/use-smart-poll';
 import { timeAgo } from '@/lib/utils';
 import type { Notification } from '@/types';
 
-interface HeaderStats {
-  posts_today: number;
-  emails_sent: number;
-  pipeline_count: number;
+interface HeaderCrmData {
+  summary: { total: number; emails_sent: number; conversion_rate: number; };
 }
 
 export function HeaderBar() {
   const { feedOpen, toggleFeed, realOnly, toggleRealOnly } = useDashboard();
 
-  // Lightweight poll for header stats
-  const { data: stats } = useSmartPoll<HeaderStats>(
-    () => fetch(`/api/overview${realOnly ? '?real=true' : ''}`).then(r => r.json()).then(d => d.stats),
+  const { data: crm } = useSmartPoll<HeaderCrmData>(
+    () => fetch(`/api/crm${realOnly ? '?real=true' : ''}`).then(r => r.json()),
     { interval: 60_000, key: realOnly },
   );
+  const stats = crm?.summary;
 
   return (
     <header className="fixed top-0 left-0 right-0 h-[var(--header-height)] bg-card/90 backdrop-blur-sm border-b border-border/70 flex items-center justify-between px-3 sm:px-4 z-50">
       <div className="flex items-center gap-2.5">
         <div className="w-7 h-7 rounded-md bg-primary/20 flex items-center justify-center">
-          <span className="text-primary font-bold text-xs">H</span>
+          <span className="text-primary font-bold text-xs">L</span>
         </div>
-        <span className="font-semibold text-sm tracking-tight">Hermes</span>
+        <span className="font-semibold text-sm tracking-tight">CRM Labcos</span>
 
         {/* Quick stats — hidden on small screens */}
         {stats && (
           <div className="hidden lg:flex items-center gap-2.5 ml-2.5 pl-2.5 border-l border-border/30">
-            <QuickStat icon={PenLine} value={stats.posts_today} label="posts" />
-            <QuickStat icon={Mail} value={stats.emails_sent} label="sent" />
-            <QuickStat icon={Users} value={stats.pipeline_count} label="pipeline" />
+            <QuickStat icon={Users} value={stats.total} label="lead" />
+            <QuickStat icon={Mail} value={stats.emails_sent} label="email" />
+            <QuickStat icon={Activity} value={stats.conversion_rate} label="phản hồi" suffix="%" />
           </div>
         )}
       </div>
@@ -58,11 +56,11 @@ export function HeaderBar() {
   );
 }
 
-function QuickStat({ icon: Icon, value, label }: { icon: typeof PenLine; value: number; label: string }) {
+function QuickStat({ icon: Icon, value, label, suffix = '' }: { icon: typeof PenLine; value: number; label: string; suffix?: string }) {
   return (
     <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
       <Icon size={11} />
-      <span className="font-mono font-medium text-foreground">{value}</span>
+      <span className="font-mono font-medium text-foreground">{value}{suffix}</span>
       <span>{label}</span>
     </div>
   );
@@ -77,10 +75,10 @@ function SeedToggle({ active, onToggle }: { active: boolean; onToggle: () => voi
           : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-border/30'
       }`}
       onClick={onToggle}
-      title={active ? 'Showing real data only' : 'Showing all data (including seeded)'}
+      title={active ? 'Chỉ hiển thị dữ liệu thật' : 'Hiển thị cả dữ liệu mẫu'}
     >
       {active ? <Eye size={13} /> : <EyeOff size={13} />}
-      <span className="hidden sm:inline">{active ? 'Real' : 'All'}</span>
+      <span className="hidden sm:inline">{active ? 'Thật' : 'Tất cả'}</span>
     </button>
   );
 }
@@ -138,7 +136,7 @@ function NotificationBell() {
         open ? 'bg-primary/15 text-primary' : 'hover:bg-muted text-muted-foreground hover:text-foreground'
       }`}
         onClick={() => setOpen(!open)}
-        title="Notifications"
+        title="Thông báo"
       >
         <Bell size={16} />
         {unreadCount > 0 && (
@@ -151,13 +149,13 @@ function NotificationBell() {
       {open && (
         <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 card border shadow-lg max-h-96 overflow-hidden flex flex-col animate-slide-in z-50">
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30">
-            <span className="text-sm font-medium">Notifications</span>
+            <span className="text-sm font-medium">Thông báo</span>
             {unreadCount > 0 && (
               <button
                 onClick={markAllRead}
                 className="flex items-center gap-1 text-[10px] text-primary hover:underline"
               >
-                <CheckCheck size={12} /> Mark all read
+                <CheckCheck size={12} /> Đánh dấu đã đọc
               </button>
             )}
           </div>
@@ -166,7 +164,7 @@ function NotificationBell() {
             {(!notifications || notifications.length === 0) ? (
               <div className="p-6 text-center text-sm text-muted-foreground">
                 <Bell size={24} className="mx-auto mb-2 opacity-30" />
-                No notifications yet
+                Chưa có thông báo
               </div>
             ) : (
               notifications.map(n => (
@@ -215,7 +213,7 @@ function SearchTrigger() {
       onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
     >
       <Search size={13} />
-      <span className="hidden sm:inline">Search</span>
+      <span className="hidden sm:inline">Tìm kiếm</span>
       <kbd className="hidden sm:inline text-[10px] bg-muted px-1 py-0.5 rounded ml-1">⌘K</kbd>
     </button>
   );
@@ -245,7 +243,7 @@ function FeedToggle({ open, onToggle }: { open: boolean; onToggle: () => void })
           : 'hover:bg-muted text-muted-foreground hover:text-foreground'
       }`}
       onClick={onToggle}
-      title="Toggle live feed"
+      title="Mở luồng hoạt động"
     >
       <Radio size={16} />
     </button>
@@ -287,7 +285,7 @@ function LogoutButton() {
       className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
       onClick={handleLogout}
       disabled={loading}
-      title="Sign out"
+      title="Đăng xuất"
     >
       <LogOut size={15} />
     </button>

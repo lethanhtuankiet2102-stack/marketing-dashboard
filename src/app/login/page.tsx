@@ -4,8 +4,8 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 function LoginForm() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setTên đăng nhập] = useState('');
+  const [password, setMật khẩu] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleEnabled, setGoogleEnabled] = useState(false);
@@ -38,7 +38,7 @@ function LoginForm() {
 
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error || 'Login failed');
+        setError(data.error || 'Đăng nhập thất bại');
         return;
       }
 
@@ -46,7 +46,7 @@ function LoginForm() {
       router.push(redirect);
       router.refresh();
     } catch {
-      setError('Connection error');
+      setError('Không thể kết nối hệ thống');
     } finally {
       setLoading(false);
     }
@@ -56,13 +56,13 @@ function LoginForm() {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label htmlFor="username" className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
-          Username
+          Tên đăng nhập
         </label>
         <input
           id="username"
           type="text"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={(e) => setTên đăng nhập(e.target.value)}
           className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
           autoFocus
           required
@@ -71,13 +71,13 @@ function LoginForm() {
 
       <div>
         <label htmlFor="password" className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
-          Password
+          Mật khẩu
         </label>
         <input
           id="password"
           type="password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => setMật khẩu(e.target.value)}
           className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
           required
         />
@@ -94,7 +94,7 @@ function LoginForm() {
         disabled={loading}
         className="w-full py-2.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
       >
-        {loading ? 'Signing in...' : 'Sign in'}
+        {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
       </button>
 
       {googleEnabled && (
@@ -102,7 +102,7 @@ function LoginForm() {
           href={`/api/auth/google/start?from=${encodeURIComponent(searchParams.get('from') || '/')}`}
           className="block w-full py-2.5 rounded-lg border border-[var(--border)] text-center text-sm font-medium hover:bg-[var(--muted)] transition-colors"
         >
-          Sign in with Google
+          Đăng nhập bằng Google
         </a>
       )}
     </form>
@@ -114,9 +114,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
       <div className="w-full max-w-sm p-8 rounded-xl border border-[var(--border)] bg-[var(--card)]">
         <div className="text-center mb-8">
-          <div className="text-3xl mb-2">&#127963;&#65039;</div>
-          <h1 className="text-xl font-semibold text-[var(--foreground)]">Marketing Dashboard</h1>
-          <p className="text-sm text-[var(--muted-foreground)] mt-1">Marketing Engine Control Center</p>
+          <div className="mx-auto mb-3 w-12 h-12 rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] flex items-center justify-center text-xl font-bold">L</div>
+          <h1 className="text-xl font-semibold text-[var(--foreground)]">CRM Labcos</h1>
+          <p className="text-sm text-[var(--muted-foreground)] mt-1">Quản lý khách hàng & vận hành marketing</p>
         </div>
 
         <Suspense fallback={<div className="h-48" />}>

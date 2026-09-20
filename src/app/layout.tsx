@@ -18,8 +18,8 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Marketing Dashboard",
-  description: "Local-first marketing operations control center for human and agent workflows",
+  title: "CRM Labcos",
+  description: "CRM Labcos - quản lý khách hàng, pipeline và vận hành marketing",
 };
 
 export const viewport = {
@@ -34,7 +34,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="vi" suppressHydrationWarning>
       <body className={`${inter.variable} ${jetbrains.variable} antialiased`}>
         <ThemeProvider>
           <LayoutContent>{children}</LayoutContent>

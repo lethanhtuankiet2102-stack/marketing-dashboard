@@ -1,608 +1,237 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import {
-  PenLine, MessageCircle, Mail, Users, AlertTriangle, Info, AlertCircle,
-  Bell, ThumbsUp, ThumbsDown, Loader2, Zap,
-  CheckCircle, Search, Send,
-} from 'lucide-react';
 import Link from 'next/link';
-import { StatCard } from '@/components/ui/stat-card';
-import { TrendChart } from '@/components/ui/trend-chart';
+import {
+  Users, UserPlus, CalendarCheck, Mail, PenLine, Target, Clock,
+  Building2, ArrowRight, Activity, BarChart3, TrendingUp,
+} from 'lucide-react';
 import { useSmartPoll } from '@/hooks/use-smart-poll';
+import { TrendChart } from '@/components/ui/trend-chart';
 import { useDashboard } from '@/store';
-import { timeAgo } from '@/lib/utils';
-import { toast } from '@/components/ui/toast';
-import type { OverviewStats, Alert, ActivityEntry, DailyMetrics } from '@/types';
-import { PipelineFunnel } from '@/components/pipeline/pipeline-funnel';
-import { AgentSessions } from '@/components/sessions/agent-sessions';
-import { ContentCalendar } from '@/components/content/content-calendar';
+import { timeAgo, STATUS_LABELS } from '@/lib/utils';
+import type {
+  Lead, FunnelStep, WeeklyKPI, DailyMetrics, ContentPost, ActivityEntry,
+} from '@/types';
 
-interface AgentBrief {
-  id: string;
-  name: string;
-  emoji: string;
-  status: string;
-  model: string;
-  last_action?: string;
-  last_action_at?: string;
-  actions_today: number;
-  next_job?: string;
-  next_job_time?: string;
+interface CrmData {
+  leads: Lead[];
+  funnel: FunnelStep[];
+  summary: {
+    total: number;
+    avg_score: number;
+    tier_breakdown: { tier: string; c: number }[];
+    pending_approvals: number;
+    emails_sent: number;
+    conversion_rate: number;
+  };
 }
 
-interface ActionItem {
-  id: string;
-  type: 'content' | 'sequence';
-  title: string;
-  subtitle: string;
-  tier?: string;
-  created_at: string;
-}
-
-interface XBudget {
-  date: string;
-  calls: number;
-  posts: number;
-  daily_search_limit: number;
-  daily_post_limit: number;
-  search_remaining: number;
-  post_remaining: number;
-}
-
-interface OverviewData {
-  stats: OverviewStats;
-  alerts: Alert[];
-  recentActivity: ActivityEntry[];
-  metrics: DailyMetrics[];
-  agents?: AgentBrief[];
-  action_items?: ActionItem[];
+interface KpiData {
+  daily: DailyMetrics[];
+  weekly: WeeklyKPI[];
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
+  const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) {
     let detail = '';
     try {
       const payload = await response.json() as { error?: string };
       detail = payload?.error ? `: ${payload.error}` : '';
-    } catch {
-      // Ignore non-JSON error bodies.
-    }
+    } catch {}
     throw new Error(`${response.status} ${response.statusText}${detail}`);
   }
   return response.json() as Promise<T>;
 }
 
-type Role = 'admin' | 'editor' | 'viewer';
+export default function LabcosOverviewPage() {
+  const realOnly = useDashboard(s => s.realOnly);
+  const realQuery = realOnly ? '?real=true' : '';
+  const realAmp = realOnly ? '&real=true' : '';
 
-interface CycleTimeBenchmarkPayload {
-  metric: string;
-  days: number;
-  baseline_mode: 'rolling_window' | 'launch_anchored';
-  window: {
-    before: { start: string; end: string };
-    after: { start: string; end: string };
-    now: string;
-    launch_at: string | null;
-  };
-  before: { n: number; medianHours: number | null; p90Hours: number | null };
-  after: { n: number; medianHours: number | null; p90Hours: number | null };
-  delta: { median_pct: number | null; p90_pct: number | null };
-}
-
-export default function OverviewPage() {
-  const { realOnly } = useDashboard();
-  const realParam = realOnly ? '?real=true' : '';
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [role, setRole] = useState<Role>('viewer');
-
-  const { data, loading, error: overviewError } = useSmartPoll<OverviewData>(
-    () => fetchJson<OverviewData>(`/api/overview${realParam}`),
-    { interval: 30_000, key: `${realOnly}-${refreshKey}` },
+  const { data: crm, loading, error } = useSmartPoll<CrmData>(
+    () => fetchJson<CrmData>(`/api/crm${realQuery}`),
+    { interval: 30_000, key: realOnly },
+  );
+  const { data: kpis } = useSmartPoll<KpiData>(
+    () => fetchJson<KpiData>(`/api/kpis?weeks=12${realAmp}`),
+    { interval: 60_000, key: realOnly },
+  );
+  const { data: content } = useSmartPoll<ContentPost[]>(
+    () => fetchJson<ContentPost[]>(`/api/content${realQuery}`),
+    { interval: 60_000, key: realOnly },
+  );
+  const { data: activity } = useSmartPoll<ActivityEntry[]>(
+    () => fetchJson<ActivityEntry[]>(`/api/activity?limit=12${realAmp}`),
+    { interval: 45_000, key: realOnly },
   );
 
-  const { data: budget } = useSmartPoll<XBudget>(
-    () => fetchJson<XBudget>('/api/x-budget'),
-    { interval: 60_000 },
-  );
-
-  const { data: cycleBenchmark } = useSmartPoll<CycleTimeBenchmarkPayload>(
-    () => fetchJson<CycleTimeBenchmarkPayload>(`/api/benchmarks/cycle-time?days=30${realOnly ? '&real=true' : ''}`),
-    { interval: 300_000, key: `cycle-${realOnly}` },
-  );
-
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then((r) => r.json())
-      .then((payload) => setRole(payload?.user?.role === 'admin' || payload?.user?.role === 'editor' ? payload.user.role : 'viewer'))
-      .catch(() => setRole('viewer'));
-  }, []);
-
-  // Start sync service once
-  useEffect(() => { fetch('/api/sync').catch(() => {}); }, []);
-
-  if (overviewError && !data) {
-    return <DashboardLoadError message={overviewError.message} />;
+  if (error && !crm) {
+    return (
+      <div className="panel p-6 max-w-2xl">
+        <h1 className="text-xl font-semibold">CRM Labcos</h1>
+        <p className="text-sm text-muted-foreground mt-2">Không tải được dữ liệu tổng quan. Hệ thống sẽ tự thử lại.</p>
+        <pre className="mt-4 p-3 rounded-lg bg-muted/40 text-xs overflow-x-auto">{error.message}</pre>
+      </div>
+    );
   }
+  if (!crm || loading) return <DashboardSkeleton />;
 
-  if (!data || loading) {
-    return <PageSkeleton />;
+  const leads = Array.isArray(crm.leads) ? crm.leads : [];
+  const funnel = Array.isArray(crm.funnel) ? crm.funnel : [];
+  const weekly = Array.isArray(kpis?.weekly) ? kpis!.weekly : [];
+  const weeklyAsc = [...weekly].reverse();
+  const posts = Array.isArray(content) ? content : [];
+  const activities = Array.isArray(activity) ? activity : [];
+
+  const stageCount = (name: string) => funnel.find(s => s.name === name)?.value ?? 0;
+  const newLeads = stageCount('new');
+  const booked = stageCount('booked') + stageCount('qualified');
+  const hotLeads = stageCount('interested') + booked;
+  const publishedPosts = posts.filter(p => p.status === 'published').length;
+  const now = Date.now();
+  const dueTasks = leads.filter(l => l.next_action_at)
+    .sort((a,b)=>new Date(a.next_action_at as string).getTime()-new Date(b.next_action_at as string).getTime());
+  const overdueTasks = dueTasks.filter(l => new Date(l.next_action_at as string).getTime() < now).length;
+  const recentLeads = [...leads].sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime()).slice(0,6);
+
+  const sourceMap = new Map<string, number>();
+  for (const lead of leads) {
+    const source = lead.source?.trim() || 'Chưa xác định';
+    sourceMap.set(source, (sourceMap.get(source) || 0) + 1);
   }
-
-  if (!data.stats) {
-    return <DashboardLoadError message="The overview API returned an unexpected response." />;
-  }
-
-  const stats = data.stats;
-  const alerts = Array.isArray(data.alerts) ? data.alerts : [];
-  const recentActivity = Array.isArray(data.recentActivity) ? data.recentActivity : [];
-  const metrics = Array.isArray(data.metrics) ? data.metrics : [];
-  const agents = Array.isArray(data.agents) ? data.agents : undefined;
-  const action_items = Array.isArray(data.action_items) ? data.action_items : undefined;
-  const canEdit = role === 'admin' || role === 'editor';
-
-  const metricsReversed = [...metrics].reverse();
-  const impressionData = metricsReversed.map(m => ({ date: m.date, value: m.total_impressions }));
-  const engagementData = metricsReversed.map(m => ({ date: m.date, value: m.total_engagement }));
-  const sendsData = metricsReversed.map(m => ({ date: m.date, value: m.sends }));
-  const discoveryData = metricsReversed.map(m => ({ date: m.date, value: m.discoveries }));
+  const sources = [...sourceMap.entries()].map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count).slice(0,6);
+  const maxSource = Math.max(...sources.map(s=>s.count),1);
 
   return (
-    <div className="space-y-6 animate-in">
-      <div className="panel">
-        <div className="panel-header">
-          <h1 className="text-xl font-semibold">Overview</h1>
-        </div>
-      </div>
-
-      {/* Agent Status Strip */}
-      {agents && agents.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {agents.map(agent => (
-            <Link key={agent.id} href="/agents/squads" className="panel card-hover p-4 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center text-lg shrink-0">
-                {agent.emoji}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm">{agent.name}</span>
-                  <span className={`w-2 h-2 rounded-full ${
-                    agent.status === 'active' ? 'bg-success' :
-                    agent.status === 'idle' ? 'bg-warning' :
-                    agent.status === 'error' ? 'bg-destructive' : 'bg-muted-foreground'
-                  }`} />
-                  <span className="text-[10px] text-muted-foreground capitalize">{agent.status}</span>
-                </div>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                  <span className="font-mono">{agent.actions_today} actions today</span>
-                  {agent.last_action_at && (
-                    <span className="truncate">Last: {timeAgo(agent.last_action_at)}</span>
-                  )}
-                </div>
-              </div>
-              {agent.next_job && (
-                <div className="text-right shrink-0">
-                  <div className="text-[10px] text-muted-foreground">Next</div>
-                  <div className="text-xs font-medium">{agent.next_job}</div>
-                  {agent.next_job_time && (
-                    <div className="text-[10px] text-muted-foreground font-mono">{agent.next_job_time}</div>
-                  )}
-                </div>
-              )}
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {/* X API Budget + Action Items row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* X API Budget Widget */}
-        {budget && !('error' in budget) && (
-          <div className="panel">
-            <div className="panel-header">
-              <h3 className="section-title flex items-center gap-2">
-              <Search size={14} />
-              X API Budget
-              <span className="text-[10px] text-muted-foreground font-mono ml-auto">{budget.date}</span>
-              </h3>
+    <div className="space-y-5 animate-in">
+      <section className="panel overflow-hidden">
+        <div className="panel-body relative p-5 sm:p-6">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-info/5 pointer-events-none" />
+          <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-primary font-semibold">CRM LABCOS</div>
+              <h1 className="text-2xl sm:text-3xl font-semibold mt-1">Tổng quan khách hàng & tăng trưởng</h1>
+              <p className="text-sm text-muted-foreground mt-2 max-w-2xl">Theo dõi lead, pipeline, lịch chăm sóc, email và hiệu quả marketing trong một màn hình.</p>
             </div>
-            <div className="panel-body space-y-3">
-              <BudgetBar
-                label="Search"
-                used={budget.calls}
-                limit={budget.daily_search_limit}
-                icon={<Search size={12} />}
-              />
-              <BudgetBar
-                label="Posts"
-                used={budget.posts}
-                limit={budget.daily_post_limit}
-                icon={<Send size={12} />}
-              />
+            <div className="flex items-center gap-2">
+              <Link href="/crm" className="btn btn-primary btn-sm"><Users size={14}/> Quản lý khách hàng</Link>
+              <Link href="/outreach" className="btn btn-ghost btn-sm">Chăm sóc lead <ArrowRight size={13}/></Link>
             </div>
           </div>
-        )}
+        </div>
+      </section>
 
-        {/* Action Items — pending approvals */}
-        {action_items && action_items.length > 0 && (
-          <div className="panel lg:col-span-2">
-            <div className="panel-header flex items-center justify-between">
-              <h3 className="section-title flex items-center gap-2">
-                <Zap size={14} className="text-warning" />
-                Action Items
-                <span className="text-[10px] bg-warning/15 text-warning px-2 py-0.5 rounded-full font-semibold">
-                  {action_items.length}
-                </span>
-              </h3>
-              <div className="flex gap-2">
-                <Link
-                  href="/content"
-                  className="text-[10px] text-primary hover:underline"
-                >
-                  Content Queue
-                </Link>
-                <Link
-                  href="/outreach"
-                  className="text-[10px] text-primary hover:underline"
-                >
-                  Outreach Approvals
-                </Link>
-              </div>
-            </div>
-            <div className="panel-body space-y-2 max-h-64 overflow-y-auto">
-              {action_items.map(item => (
-                <ActionItemCard
-                  key={item.id}
-                  item={item}
-                  canEdit={canEdit}
-                  onAction={() => setRefreshKey(k => k + 1)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      <section className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        <MetricCard label="Tổng lead" value={crm.summary.total} helper="Toàn bộ pipeline" icon={Users} tone="text-primary bg-primary/15"/>
+        <MetricCard label="Lead mới" value={newLeads} helper="Chưa xử lý" icon={UserPlus} tone="text-info bg-info/15"/>
+        <MetricCard label="Đã hẹn / tiềm năng" value={booked} helper={hotLeads > booked ? `${hotLeads} lead đang nóng` : 'Lead gần chuyển đổi'} icon={CalendarCheck} tone="text-success bg-success/15"/>
+        <MetricCard label="Tỷ lệ phản hồi" value={`${crm.summary.conversion_rate}%`} helper="Sau khi đã liên hệ" icon={TrendingUp} tone="text-warning bg-warning/15"/>
+      </section>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          label="Posts Today"
-          value={stats.posts_today}
-          icon={PenLine}
-          sparkline={impressionData.slice(-14).map(d => ({ value: d.value }))}
-          color="var(--primary)"
-        />
-        <StatCard
-          label="Engagements Today"
-          value={stats.engagement_today}
-          icon={MessageCircle}
-          sparkline={engagementData.slice(-14).map(d => ({ value: d.value }))}
-          color="var(--success)"
-        />
-        <StatCard
-          label="Emails Sent"
-          value={stats.emails_sent}
-          icon={Mail}
-          sparkline={sendsData.slice(-14).map(d => ({ value: d.value }))}
-          color="var(--warning)"
-        />
-        <StatCard
-          label="Pipeline"
-          value={stats.pipeline_count}
-          icon={Users}
-          sparkline={discoveryData.slice(-14).map(d => ({ value: d.value }))}
-          color="var(--info)"
-        />
-      </div>
+      <section className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        <MiniMetric label="Email đã gửi" value={crm.summary.emails_sent} icon={Mail}/>
+        <MiniMetric label="Nội dung đã đăng" value={publishedPosts} icon={PenLine}/>
+        <MiniMetric label="Việc quá hạn" value={overdueTasks} icon={Clock} warning={overdueTasks>0}/>
+        <MiniMetric label="Điểm lead trung bình" value={crm.summary.avg_score} icon={Target}/>
+      </section>
 
-      <CycleTimeBenchmarkPanel data={cycleBenchmark || undefined} />
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="panel">
-          <div className="panel-header">
-            <h3 className="section-title">Impressions (12 weeks)</h3>
+      <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div className="panel xl:col-span-2">
+          <div className="panel-header flex items-center justify-between">
+            <div><h2 className="section-title flex items-center gap-2"><BarChart3 size={14}/> Pipeline khách hàng</h2><p className="text-[11px] text-muted-foreground mt-1">Phân bổ lead theo từng giai đoạn</p></div>
+            <Link href="/crm?view=kanban" className="text-xs text-primary hover:underline">Mở Kanban</Link>
           </div>
           <div className="panel-body">
-          <TrendChart
-            data={metricsReversed.map(m => ({ date: m.date.slice(5), impressions: m.total_impressions }))}
-            xKey="date"
-            lines={[{ key: 'impressions', color: 'var(--primary)', label: 'Impressions' }]}
-          />
-          </div>
-        </div>
-        <div className="panel">
-          <div className="panel-header">
-            <h3 className="section-title">Engagement & Sends (12 weeks)</h3>
-          </div>
-          <div className="panel-body">
-          <TrendChart
-            data={metricsReversed.map(m => ({
-              date: m.date.slice(5),
-              engagement: m.total_engagement,
-              sends: m.sends,
-            }))}
-            xKey="date"
-            lines={[
-              { key: 'engagement', color: 'var(--success)', label: 'Engagement' },
-              { key: 'sends', color: 'var(--warning)', label: 'Sends' },
-            ]}
-          />
-          </div>
-        </div>
-      </div>
-
-      {/* Pipeline + Sessions + Content row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <PipelineFunnel />
-        <ContentCalendar />
-        <AgentSessions />
-      </div>
-
-      {/* Bottom row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Activity Feed */}
-        <div className="panel">
-          <div className="panel-header">
-            <h3 className="section-title">Recent Activity</h3>
-          </div>
-          <div className="panel-body space-y-2 max-h-80 overflow-y-auto">
-            {recentActivity.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No activity yet</p>
-            ) : (
-              recentActivity.map(entry => (
-                <div key={entry.id} className="flex items-start gap-3 py-2 border-b border-border/50 last:border-0">
-                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center mt-0.5">
-                    <ActionIcon action={entry.action} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm truncate">{entry.detail || entry.action}</p>
-                    <p className="text-xs text-muted-foreground">{timeAgo(entry.ts)}</p>
-                  </div>
-                  {entry.result && (
-                    <span className="text-xs text-success">{entry.result}</span>
-                  )}
-                </div>
-              ))
-            )}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {funnel.filter(s=>!['rejected','disqualified'].includes(s.name)).map(step=>{
+                const max=Math.max(...funnel.map(s=>s.value),1);
+                const pct=Math.max(4,(step.value/max)*100);
+                return (
+                  <Link key={step.name} href={`/crm?status=${step.name}`} className="rounded-xl border border-border/50 p-3 hover:border-primary/40 hover:bg-primary/5 transition-colors">
+                    <div className="flex items-center justify-between gap-2"><span className="text-[11px] text-muted-foreground">{STATUS_LABELS[step.name]||step.name}</span><span className="font-mono font-semibold">{step.value}</span></div>
+                    <div className="h-1.5 bg-muted rounded-full mt-3 overflow-hidden"><div className="h-full bg-primary/70 rounded-full" style={{width:`${pct}%`}}/></div>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* Alerts */}
         <div className="panel">
-          <div className="panel-header">
-            <h3 className="section-title">Alerts</h3>
-          </div>
-          <div className="panel-body space-y-2">
-            {alerts.length === 0 ? (
-              <div className="flex items-center justify-center h-20 text-sm text-muted-foreground">
-                <CheckCircle size={16} className="mr-2 text-success" />
-                All clear
+          <div className="panel-header"><h2 className="section-title flex items-center gap-2"><Building2 size={14}/> Nguồn lead</h2></div>
+          <div className="panel-body space-y-3">
+            {sources.length===0 ? <EmptyText>Chưa có dữ liệu nguồn lead</EmptyText> : sources.map(source=>(
+              <div key={source.name}>
+                <div className="flex items-center justify-between text-xs mb-1"><span className="truncate text-muted-foreground">{source.name}</span><span className="font-mono">{source.count}</span></div>
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-info/70 rounded-full" style={{width:`${Math.max(5,(source.count/maxSource)*100)}%`}}/></div>
               </div>
-            ) : (
-              alerts.map(alert => (
-                <div
-                  key={alert.id}
-                  className={`flex items-start gap-3 p-3 rounded-lg ${
-                    alert.type === 'error' ? 'bg-destructive/10' :
-                    alert.type === 'warning' ? 'bg-warning/10' :
-                    'bg-info/10'
-                  }`}
-                >
-                  {alert.type === 'error' && <AlertCircle size={16} className="text-destructive mt-0.5" />}
-                  {alert.type === 'warning' && <AlertTriangle size={16} className="text-warning mt-0.5" />}
-                  {alert.type === 'info' && <Info size={16} className="text-info mt-0.5" />}
-                  <p className="text-sm">{alert.message}</p>
-                </div>
-              ))
-            )}
+            ))}
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
+      </section>
 
-function BudgetBar({ label, used, limit, icon }: { label: string; used: number; limit: number; icon: React.ReactNode }) {
-  const pct = Math.min(100, (used / limit) * 100);
-  const isHigh = pct >= 80;
-  const isDepleted = pct >= 100;
+      <section className="panel">
+        <div className="panel-header"><div><h2 className="section-title flex items-center gap-2"><TrendingUp size={14}/> Hiệu suất 12 tuần</h2><p className="text-[11px] text-muted-foreground mt-1">Lead mới và email chăm sóc theo tuần</p></div></div>
+        <div className="panel-body">
+          {weeklyAsc.length>1 ? <TrendChart data={weeklyAsc.map(w=>({week:w.week,leads:w.leads_added,emails:w.emails_sent}))} xKey="week" lines={[{key:'leads',color:'var(--info)',label:'Lead mới'},{key:'emails',color:'var(--primary)',label:'Email đã gửi'}]}/> : <EmptyText>Chưa đủ dữ liệu để vẽ biểu đồ</EmptyText>}
+        </div>
+      </section>
 
-  return (
-    <div>
-      <div className="flex items-center justify-between text-xs mb-1">
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          {icon}
-          {label}
-        </span>
-        <span className={`font-mono font-medium ${isDepleted ? 'text-destructive' : isHigh ? 'text-warning' : ''}`}>
-          {used}/{limit}
-        </span>
-      </div>
-      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${
-            isDepleted ? 'bg-destructive' : isHigh ? 'bg-warning' : 'bg-primary'
-          }`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function formatHours(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return '—';
-  if (value < 1) return `${Math.round(value * 60)}m`;
-  return `${value.toFixed(1)}h`;
-}
-
-function formatDelta(deltaPct: number | null): string {
-  if (deltaPct === null || !Number.isFinite(deltaPct)) return '—';
-  const rounded = Math.round(deltaPct * 10) / 10;
-  const prefix = rounded > 0 ? '+' : '';
-  return `${prefix}${rounded}%`;
-}
-
-function CycleTimeBenchmarkPanel({ data }: { data?: CycleTimeBenchmarkPayload }) {
-  if (!data) return null;
-  const improveCls = (data.delta.median_pct ?? -1) >= 0 ? 'text-success' : 'text-warning';
-
-  return (
-    <div className="panel">
-      <div className="panel-header flex items-center justify-between">
-        <h3 className="section-title">Lead → Approved Campaign Cycle Time</h3>
-        <span className="text-[10px] text-muted-foreground font-mono">
-          {data.baseline_mode === 'launch_anchored' ? 'launch anchored' : `rolling ${data.days}d`}
-        </span>
-      </div>
-      <div className="panel-body space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="card p-4">
-            <div className="text-xs text-muted-foreground">Before median</div>
-            <div className="text-lg font-mono font-semibold mt-1">{formatHours(data.before.medianHours)}</div>
-          </div>
-          <div className="card p-4">
-            <div className="text-xs text-muted-foreground">After median</div>
-            <div className="text-lg font-mono font-semibold mt-1">{formatHours(data.after.medianHours)}</div>
-          </div>
-          <div className="card p-4">
-            <div className="text-xs text-muted-foreground">Before p90</div>
-            <div className="text-lg font-mono font-semibold mt-1">{formatHours(data.before.p90Hours)}</div>
-          </div>
-          <div className="card p-4">
-            <div className="text-xs text-muted-foreground">After p90</div>
-            <div className="text-lg font-mono font-semibold mt-1">{formatHours(data.after.p90Hours)}</div>
+      <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="panel">
+          <div className="panel-header flex items-center justify-between"><h2 className="section-title flex items-center gap-2"><UserPlus size={14}/> Lead mới gần đây</h2><Link href="/crm" className="text-xs text-primary hover:underline">Xem tất cả</Link></div>
+          <div className="panel-body !p-0">
+            {recentLeads.length===0 ? <div className="p-6"><EmptyText>Chưa có lead</EmptyText></div> : recentLeads.map(lead=>(
+              <Link key={lead.id} href={`/crm?lead=${lead.id}`} className="flex items-center gap-3 px-4 py-3 border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors">
+                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold shrink-0">{(lead.first_name?.[0]||lead.company?.[0]||'L').toUpperCase()}</div>
+                <div className="flex-1 min-w-0"><div className="text-sm font-medium truncate">{[lead.first_name,lead.last_name].filter(Boolean).join(' ')||lead.company||'Lead chưa đặt tên'}</div><div className="text-[11px] text-muted-foreground truncate">{lead.company||'Chưa có doanh nghiệp'} · {lead.source||'Chưa rõ nguồn'}</div></div>
+                <div className="text-right shrink-0"><div className="text-[10px] text-primary">{STATUS_LABELS[lead.status]||lead.status}</div><div className="text-[10px] text-muted-foreground mt-0.5">{timeAgo(lead.created_at)}</div></div>
+              </Link>
+            ))}
           </div>
         </div>
 
-        <div className="card p-4 text-sm flex flex-wrap items-center justify-between gap-2">
-          <div className="text-muted-foreground">
-            n before <span className="font-mono text-foreground">{data.before.n}</span> · n after <span className="font-mono text-foreground">{data.after.n}</span>
+        <div className="panel">
+          <div className="panel-header flex items-center justify-between"><h2 className="section-title flex items-center gap-2"><Clock size={14}/> Lịch chăm sóc</h2><Link href="/crm" className="text-xs text-primary hover:underline">Mở CRM</Link></div>
+          <div className="panel-body !p-0">
+            {dueTasks.length===0 ? <div className="p-6"><EmptyText>Chưa có lịch chăm sóc</EmptyText></div> : dueTasks.slice(0,6).map(lead=>{
+              const overdue=new Date(lead.next_action_at as string).getTime()<now;
+              return (
+                <Link key={lead.id} href={`/crm?lead=${lead.id}`} className="flex items-center gap-3 px-4 py-3 border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors">
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${overdue?'bg-destructive':'bg-warning'}`}/>
+                  <div className="flex-1 min-w-0"><div className="text-sm truncate">{[lead.first_name,lead.last_name].filter(Boolean).join(' ')||lead.company||'Lead chưa đặt tên'}</div><div className="text-[11px] text-muted-foreground truncate">{lead.company||'Chưa có doanh nghiệp'}</div></div>
+                  <span className={`text-[10px] font-medium ${overdue?'text-destructive':'text-warning'}`}>{timeAgo(lead.next_action_at)}</span>
+                </Link>
+              );
+            })}
           </div>
-          <div className={`font-mono ${improveCls}`}>
-            median {formatDelta(data.delta.median_pct)} · p90 {formatDelta(data.delta.p90_pct)}
-          </div>
         </div>
-      </div>
-    </div>
-  );
-}
+      </section>
 
-function ActionItemCard({ item, onAction, canEdit }: { item: ActionItem; onAction: () => void; canEdit: boolean }) {
-  const [acting, setActing] = useState<string | null>(null);
-
-  async function handleAction(action: 'approve' | 'reject') {
-    if (!canEdit) return;
-    setActing(action);
-    try {
-      if (item.type === 'content') {
-        await fetch('/api/content', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: item.id, status: action === 'approve' ? 'ready' : 'rejected' }),
-        });
-      } else {
-        await fetch('/api/sequences', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: item.id, status: action === 'approve' ? 'approved' : 'cancelled' }),
-        });
-      }
-      toast.success(action === 'approve' ? 'Approved' : 'Rejected');
-      onAction();
-    } catch {
-      toast.error('Failed to update');
-    }
-    setActing(null);
-  }
-
-  return (
-    <div className={`flex items-center gap-3 p-3 rounded-lg ${
-      item.type === 'content' ? 'bg-primary/5' : 'bg-warning/5'
-    }`}>
-      <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center shrink-0">
-        {item.type === 'content' ? <PenLine size={14} /> : <Mail size={14} />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium truncate">{item.title}</span>
-          {item.tier && (
-            <span className="text-[9px] bg-muted px-1 rounded">Tier {item.tier}</span>
-          )}
+      <section className="panel">
+        <div className="panel-header flex items-center justify-between"><h2 className="section-title flex items-center gap-2"><Activity size={14}/> Hoạt động gần đây</h2><Link href="/activity" className="text-xs text-primary hover:underline">Xem nhật ký</Link></div>
+        <div className="panel-body">
+          {activities.length===0 ? <EmptyText>Chưa có hoạt động được ghi nhận</EmptyText> : <div className="space-y-0">{activities.slice(0,8).map(entry=>(
+            <div key={entry.id} className="flex items-start gap-3 py-2.5 border-b border-border/30 last:border-0">
+              <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center mt-0.5"><Activity size={12} className="text-muted-foreground"/></div>
+              <div className="flex-1 min-w-0"><p className="text-sm truncate">{entry.detail||entry.action||'Hoạt động CRM'}</p><p className="text-[11px] text-muted-foreground">{timeAgo(entry.ts)}</p></div>
+              {entry.result && <span className="text-[10px] text-success">{entry.result}</span>}
+            </div>
+          ))}</div>}
         </div>
-        <p className="text-[11px] text-muted-foreground truncate">{item.subtitle}</p>
-      </div>
-      {canEdit ? (
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            onClick={() => handleAction('approve')}
-            disabled={acting !== null}
-            className="flex items-center gap-1 text-[10px] font-medium bg-success/15 text-success hover:bg-success/25 px-2 py-1 rounded transition-colors disabled:opacity-50"
-          >
-            {acting === 'approve' ? <Loader2 size={10} className="animate-spin" /> : <ThumbsUp size={10} />}
-          </button>
-          <button
-            onClick={() => handleAction('reject')}
-            disabled={acting !== null}
-            className="flex items-center gap-1 text-[10px] font-medium bg-destructive/15 text-destructive hover:bg-destructive/25 px-2 py-1 rounded transition-colors disabled:opacity-50"
-          >
-            {acting === 'reject' ? <Loader2 size={10} className="animate-spin" /> : <ThumbsDown size={10} />}
-          </button>
-        </div>
-      ) : (
-        <span className="text-[10px] text-muted-foreground shrink-0">read-only</span>
-      )}
+      </section>
     </div>
   );
 }
 
-function ActionIcon({ action }: { action: string | null }) {
-  const size = 12;
-  switch (action) {
-    case 'post': return <PenLine size={size} />;
-    case 'engage': return <MessageCircle size={size} />;
-    case 'send': return <Mail size={size} />;
-    case 'alert': return <Bell size={size} />;
-    default: return <Info size={size} />;
-  }
+function MetricCard({label,value,helper,icon:Icon,tone}:{label:string;value:number|string;helper:string;icon:typeof Users;tone:string}) {
+  return <div className="card card-hover p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs text-muted-foreground">{label}</p><p className="text-2xl font-semibold font-mono mt-1">{typeof value==='number'?value.toLocaleString('vi-VN'):value}</p><p className="text-[10px] text-muted-foreground mt-1">{helper}</p></div><div className={`w-9 h-9 rounded-lg flex items-center justify-center ${tone}`}><Icon size={18}/></div></div></div>;
 }
-
-function DashboardLoadError({ message }: { message: string }) {
-  return (
-    <div className="panel p-6 max-w-2xl">
-      <h1 className="text-xl font-semibold">Dashboard unavailable</h1>
-      <p className="text-sm text-muted-foreground mt-2">
-        The dashboard API could not be loaded. This page will retry automatically.
-      </p>
-      <pre className="mt-4 p-3 rounded-lg bg-muted/40 text-xs overflow-x-auto">{message}</pre>
-      <a href="/login" className="inline-block mt-4 text-sm text-primary hover:underline">
-        Sign in again
-      </a>
-    </div>
-  );
+function MiniMetric({label,value,icon:Icon,warning=false}:{label:string;value:number;icon:typeof Mail;warning?:boolean}) {
+  return <div className="panel p-3.5 flex items-center gap-3"><div className={`w-8 h-8 rounded-lg flex items-center justify-center ${warning?'bg-destructive/15 text-destructive':'bg-muted text-muted-foreground'}`}><Icon size={15}/></div><div><div className="text-lg font-semibold font-mono">{value.toLocaleString('vi-VN')}</div><div className="text-[10px] text-muted-foreground">{label}</div></div></div>;
 }
-
-function PageSkeleton() {
-  return (
-    <div className="space-y-6 animate-in">
-      <h1 className="text-xl font-semibold">Overview</h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {[1, 2].map(i => (
-          <div key={i} className="panel p-4 h-20 animate-pulse bg-muted/20" />
-        ))}
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map(i => (
-          <div key={i} className="panel p-4 h-32 animate-pulse bg-muted/20" />
-        ))}
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {[1, 2].map(i => (
-          <div key={i} className="panel p-4 h-64 animate-pulse bg-muted/20" />
-        ))}
-      </div>
-    </div>
-  );
+function EmptyText({children}:{children:React.ReactNode}) { return <div className="text-sm text-muted-foreground text-center py-5">{children}</div>; }
+function DashboardSkeleton() {
+  return <div className="space-y-5 animate-in"><div className="panel h-32 animate-pulse bg-muted/20"/><div className="grid grid-cols-2 xl:grid-cols-4 gap-3">{[1,2,3,4].map(i=><div key={i} className="panel h-28 animate-pulse bg-muted/20"/>)}</div><div className="grid grid-cols-1 xl:grid-cols-3 gap-4"><div className="panel xl:col-span-2 h-64 animate-pulse bg-muted/20"/><div className="panel h-64 animate-pulse bg-muted/20"/></div></div>;
 }
