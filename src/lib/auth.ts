@@ -1,4 +1,4 @@
-import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import { getDb } from './db';
 
 const SALT_LENGTH = 16;
@@ -65,6 +65,85 @@ function requireEnv(name: 'AUTH_USER' | 'AUTH_PASS'): string {
 export function getConfiguredApiKey(): string | null {
   const value = process.env.API_KEY?.trim();
   return value ? value : null;
+}
+
+interface StatelessSessionPayload {
+  v: 1;
+  exp: number;
+  user: User;
+}
+
+function shouldUseStatelessSessions(): boolean {
+  const raw = process.env.HERMES_STATELESS_SESSIONS?.trim().toLowerCase();
+  if (raw === 'true' || raw === '1' || raw === 'yes') return true;
+  if (raw === 'false' || raw === '0' || raw === 'no') return false;
+  // Vercel functions do not provide a persistent local filesystem across instances,
+  // so DB-backed sessions can disappear between requests.
+  return process.env.VERCEL === '1';
+}
+
+function getSessionSecret(): string {
+  const secret =
+    process.env.AUTH_SESSION_SECRET?.trim() ||
+    process.env.API_KEY?.trim() ||
+    process.env.AUTH_PASS?.trim();
+  if (!secret) {
+    throw new Error('AUTH_SESSION_SECRET, API_KEY, or AUTH_PASS must be set for stateless sessions');
+  }
+  return secret;
+}
+
+function signSessionPayload(encodedPayload: string): string {
+  return createHmac('sha256', getSessionSecret())
+    .update(encodedPayload)
+    .digest('base64url');
+}
+
+function createStatelessSession(user: User): string {
+  const payload: StatelessSessionPayload = {
+    v: 1,
+    exp: Math.floor(Date.now() / 1000) + SESSION_DURATION,
+    user: { ...user, role: normalizeRole(user.role) },
+  };
+  const encodedPayload = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  return `${encodedPayload}.${signSessionPayload(encodedPayload)}`;
+}
+
+function validateStatelessSession(token: string): User | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 2) return null;
+    const [encodedPayload, signature] = parts;
+    if (!encodedPayload || !signature) return null;
+
+    const expected = signSessionPayload(encodedPayload);
+    const providedBuf = Buffer.from(signature, 'utf8');
+    const expectedBuf = Buffer.from(expected, 'utf8');
+    if (
+      providedBuf.length !== expectedBuf.length ||
+      !timingSafeEqual(providedBuf, expectedBuf)
+    ) {
+      return null;
+    }
+
+    const payload = JSON.parse(
+      Buffer.from(encodedPayload, 'base64url').toString('utf8'),
+    ) as Partial<StatelessSessionPayload>;
+    if (payload.v !== 1 || typeof payload.exp !== 'number' || payload.exp <= Math.floor(Date.now() / 1000)) {
+      return null;
+    }
+    const user = payload.user;
+    if (!user || typeof user.id !== 'number' || typeof user.username !== 'string' || typeof user.role !== 'string') {
+      return null;
+    }
+    return {
+      ...user,
+      role: normalizeRole(user.role),
+      created_at: typeof user.created_at === 'string' ? user.created_at : '',
+    };
+  } catch {
+    return null;
+  }
 }
 
 function hashPassword(password: string): string {
@@ -169,6 +248,15 @@ export function authenticate(username: string, password: string): User | null {
 
 export function createSession(userId: number): string {
   const db = getDb();
+
+  if (shouldUseStatelessSessions()) {
+    const user = db
+      .prepare('SELECT id, username, role, created_at, email, auth_provider FROM users WHERE id = ?')
+      .get(userId) as User | undefined;
+    if (!user) throw new Error('Cannot create session for missing user');
+    return createStatelessSession(user);
+  }
+
   const token = randomBytes(32).toString('hex');
   const expiresAt = Math.floor(Date.now() / 1000) + SESSION_DURATION;
   db.prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)').run(token, userId, expiresAt);
@@ -178,6 +266,11 @@ export function createSession(userId: number): string {
 
 export function validateSession(token: string): User | null {
   if (!token) return null;
+
+  if (shouldUseStatelessSessions()) {
+    return validateStatelessSession(token);
+  }
+
   const db = getDb();
   const now = Math.floor(Date.now() / 1000);
   const row = db
@@ -192,6 +285,8 @@ export function validateSession(token: string): User | null {
 }
 
 export function destroySession(token: string): void {
+  // Stateless sessions are invalidated client-side by clearing the cookie.
+  if (shouldUseStatelessSessions()) return;
   getDb().prepare('DELETE FROM sessions WHERE token = ?').run(token);
 }
 

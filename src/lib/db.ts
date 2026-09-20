@@ -4,8 +4,14 @@ import path from 'node:path';
 import { seedChatMessages } from './seed-chat';
 import { getHermesStateDir } from './hermes-state';
 
-const DB_PATH =
-  process.env.HERMES_DB_PATH || path.join(getHermesStateDir(), 'hermes.db');
+function defaultDbPath(): string {
+  if (process.env.VERCEL === '1') {
+    return '/tmp/hermes-dashboard/hermes.db';
+  }
+  return path.join(getHermesStateDir(), 'hermes.db');
+}
+
+const DB_PATH = process.env.HERMES_DB_PATH || defaultDbPath();
 
 export function getDbPath(): string {
   return DB_PATH;

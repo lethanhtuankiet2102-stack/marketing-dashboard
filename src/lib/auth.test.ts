@@ -76,6 +76,28 @@ test('session lifecycle validates and invalidates correctly', () => {
   assert.equal(validateSession(token), null);
 });
 
+test('stateless session remains valid without the DB session row', () => {
+  seedAdmin();
+  const user = authenticate('admin_test', 'super-secure-pass');
+  assert.ok(user);
+
+  process.env.HERMES_STATELESS_SESSIONS = 'true';
+  try {
+    const token = createSession(user.id);
+    getDb().exec('DELETE FROM sessions; DELETE FROM users;');
+
+    const validated = validateSession(token);
+    assert.ok(validated);
+    assert.equal(validated.username, 'admin_test');
+    assert.equal(validated.role, 'admin');
+
+    destroySession(token);
+    assert.ok(validateSession(token));
+  } finally {
+    delete process.env.HERMES_STATELESS_SESSIONS;
+  }
+});
+
 test('requireUser throws on invalid session cookie', () => {
   const request = new Request('http://localhost/api/test', {
     headers: { cookie: 'hermes-session=invalid-token' },

@@ -59,6 +59,21 @@ interface OverviewData {
   action_items?: ActionItem[];
 }
 
+async function fetchJson<T>(url: string): Promise<T> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    let detail = '';
+    try {
+      const payload = await response.json() as { error?: string };
+      detail = payload?.error ? `: ${payload.error}` : '';
+    } catch {
+      // Ignore non-JSON error bodies.
+    }
+    throw new Error(`${response.status} ${response.statusText}${detail}`);
+  }
+  return response.json() as Promise<T>;
+}
+
 type Role = 'admin' | 'editor' | 'viewer';
 
 interface CycleTimeBenchmarkPayload {
@@ -82,18 +97,18 @@ export default function OverviewPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [role, setRole] = useState<Role>('viewer');
 
-  const { data, loading } = useSmartPoll<OverviewData>(
-    () => fetch(`/api/overview${realParam}`).then(r => r.json()),
+  const { data, loading, error: overviewError } = useSmartPoll<OverviewData>(
+    () => fetchJson<OverviewData>(`/api/overview${realParam}`),
     { interval: 30_000, key: `${realOnly}-${refreshKey}` },
   );
 
   const { data: budget } = useSmartPoll<XBudget>(
-    () => fetch('/api/x-budget').then(r => r.json()),
+    () => fetchJson<XBudget>('/api/x-budget'),
     { interval: 60_000 },
   );
 
   const { data: cycleBenchmark } = useSmartPoll<CycleTimeBenchmarkPayload>(
-    () => fetch(`/api/benchmarks/cycle-time?days=30${realOnly ? '&real=true' : ''}`).then(r => r.json()),
+    () => fetchJson<CycleTimeBenchmarkPayload>(`/api/benchmarks/cycle-time?days=30${realOnly ? '&real=true' : ''}`),
     { interval: 300_000, key: `cycle-${realOnly}` },
   );
 
@@ -107,11 +122,24 @@ export default function OverviewPage() {
   // Start sync service once
   useEffect(() => { fetch('/api/sync').catch(() => {}); }, []);
 
+  if (overviewError && !data) {
+    return <DashboardLoadError message={overviewError.message} />;
+  }
+
   if (!data || loading) {
     return <PageSkeleton />;
   }
 
-  const { stats, alerts, recentActivity, metrics, agents, action_items } = data;
+  if (!data.stats) {
+    return <DashboardLoadError message="The overview API returned an unexpected response." />;
+  }
+
+  const stats = data.stats;
+  const alerts = Array.isArray(data.alerts) ? data.alerts : [];
+  const recentActivity = Array.isArray(data.recentActivity) ? data.recentActivity : [];
+  const metrics = Array.isArray(data.metrics) ? data.metrics : [];
+  const agents = Array.isArray(data.agents) ? data.agents : undefined;
+  const action_items = Array.isArray(data.action_items) ? data.action_items : undefined;
   const canEdit = role === 'admin' || role === 'editor';
 
   const metricsReversed = [...metrics].reverse();
@@ -539,6 +567,21 @@ function ActionIcon({ action }: { action: string | null }) {
     case 'alert': return <Bell size={size} />;
     default: return <Info size={size} />;
   }
+}
+
+function DashboardLoadError({ message }: { message: string }) {
+  return (
+    <div className="panel p-6 max-w-2xl">
+      <h1 className="text-xl font-semibold">Dashboard unavailable</h1>
+      <p className="text-sm text-muted-foreground mt-2">
+        The dashboard API could not be loaded. This page will retry automatically.
+      </p>
+      <pre className="mt-4 p-3 rounded-lg bg-muted/40 text-xs overflow-x-auto">{message}</pre>
+      <a href="/login" className="inline-block mt-4 text-sm text-primary hover:underline">
+        Sign in again
+      </a>
+    </div>
+  );
 }
 
 function PageSkeleton() {
