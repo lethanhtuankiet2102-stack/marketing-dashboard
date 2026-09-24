@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { crmAll, crmGet, crmRun, hasRemoteCrmDb } from '@/lib/crm-db';
 import { maybeSeedExclude } from '@/lib/seed-filter';
 import { writebackLeadUpdate, writebackSequenceStatus } from '@/lib/writeback';
 import type { Lead, Sequence, FunnelStep } from '@/types';
@@ -19,6 +20,8 @@ const ALLOWED_LEAD_STATUSES = new Set([
   "interested",
   "booked",
   "qualified",
+  "won",
+  "lost",
   "rejected",
   "disqualified",
 ]);
@@ -32,7 +35,7 @@ export async function GET(request: Request) {
 
   // Single lead detail
   if (id) {
-    const lead = db.prepare('SELECT * FROM leads WHERE id = ?').get(id) as Lead | undefined;
+    const lead = await crmGet<Lead>('SELECT * FROM leads WHERE id = ?', [id]);
     if (!lead) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
@@ -119,6 +122,61 @@ export async function GET(request: Request) {
   const status = searchParams.get('status');
   const tier = searchParams.get('tier');
   const search = searchParams.get('search');
+
+  if (hasRemoteCrmDb()) {
+    const allRemoteLeads = await crmAll<Lead>('SELECT * FROM leads ORDER BY score DESC, created_at DESC');
+    let remoteLeads = allRemoteLeads;
+    if (status) remoteLeads = remoteLeads.filter(lead => lead.status === status);
+    if (tier) remoteLeads = remoteLeads.filter(lead => lead.tier === tier);
+    if (search) {
+      const needle = search.toLocaleLowerCase('vi');
+      remoteLeads = remoteLeads.filter(lead =>
+        [lead.first_name, lead.last_name, lead.company, lead.email, lead.phone, lead.service_interest, lead.assigned_to]
+          .some(value => String(value || '').toLocaleLowerCase('vi').includes(needle))
+      );
+    }
+
+    const stages = ["new","validated","approved","contacted","replied","interested","booked","qualified","won","lost","rejected","disqualified"];
+    const funnel: FunnelStep[] = stages.map(name => ({
+      name,
+      value: allRemoteLeads.filter(lead => lead.status === name).length,
+    }));
+    const scores = allRemoteLeads.map(l => Number(l.score)).filter(Number.isFinite);
+    const avgScore = scores.length ? scores.reduce((a,b)=>a+b,0)/scores.length : 0;
+    const tierBreakdown = ['A','B','C'].map(tierName => ({
+      tier: tierName,
+      c: allRemoteLeads.filter(lead => lead.tier === tierName).length,
+    })).filter(row => row.c > 0);
+
+    const localDb = getDb();
+    const pendingApprovals = (localDb.prepare("SELECT COUNT(*) as c FROM sequences WHERE status = 'pending_approval'").get() as { c: number })?.c ?? 0;
+    const emailsSent = (localDb.prepare("SELECT COUNT(*) as c FROM sequences WHERE status = 'sent'").get() as { c: number })?.c ?? 0;
+    const contacted = allRemoteLeads.filter(l => ['contacted','replied','interested','booked','qualified','won'].includes(l.status)).length;
+    const replied = allRemoteLeads.filter(l => ['replied','interested','booked','qualified','won'].includes(l.status)).length;
+    const activeStatuses = new Set(['new','validated','approved','contacted','replied','interested','booked','qualified']);
+    const pipelineValue = allRemoteLeads.filter(l => activeStatuses.has(l.status)).reduce((sum,l)=>sum+Number(l.deal_value||0),0);
+    const expectedRevenue = allRemoteLeads.filter(l => activeStatuses.has(l.status)).reduce((sum,l)=>sum+Number(l.expected_revenue||0),0);
+    const wonRevenue = allRemoteLeads.filter(l => l.status === 'won').reduce((sum,l)=>sum+Number(l.won_revenue || l.deal_value || 0),0);
+
+    return NextResponse.json({
+      leads: remoteLeads,
+      funnel,
+      summary: {
+        total: allRemoteLeads.length,
+        avg_score: Math.round(avgScore),
+        tier_breakdown: tierBreakdown,
+        pending_approvals: pendingApprovals,
+        emails_sent: emailsSent,
+        conversion_rate: contacted > 0 ? Math.round((replied / contacted) * 100) : 0,
+        pipeline_value: pipelineValue,
+        expected_revenue: expectedRevenue,
+        won_revenue: wonRevenue,
+        won_count: allRemoteLeads.filter(l => l.status === 'won').length,
+        lost_count: allRemoteLeads.filter(l => l.status === 'lost').length,
+        persistent: true,
+      },
+    });
+  }
   const seedExcludeLeads = maybeSeedExclude(request, 'leads');
 
   let sql = `SELECT * FROM leads WHERE 1=1${seedExcludeLeads}`;
@@ -135,7 +193,7 @@ export async function GET(request: Request) {
   sql += ' ORDER BY score DESC, created_at DESC';
   const leads = db.prepare(sql).all(...params) as Lead[];
 
-  const stages = ["new", "validated", "approved", "contacted", "replied", "interested", "booked", "qualified", "rejected", "disqualified"]; 
+  const stages = ["new", "validated", "approved", "contacted", "replied", "interested", "booked", "qualified", "won", "lost", "rejected", "disqualified"]; 
   const funnel: FunnelStep[] = stages.map(name => {
     const row = db.prepare(`SELECT COUNT(*) as c FROM leads WHERE status = ?${seedExcludeLeads}`).get(name) as { c: number };
     return { name, value: row?.c ?? 0 };
@@ -159,12 +217,17 @@ export async function GET(request: Request) {
 
   // Conversion rate: leads that replied or further / leads that were contacted
   const contacted = (db.prepare(
-    `SELECT COUNT(*) as c FROM leads WHERE status IN ('contacted','replied','interested','booked','qualified')${seedExcludeLeads}`
+    `SELECT COUNT(*) as c FROM leads WHERE status IN ('contacted','replied','interested','booked','qualified','won')${seedExcludeLeads}`
   ).get() as { c: number })?.c ?? 0;
   const replied = (db.prepare(
-    `SELECT COUNT(*) as c FROM leads WHERE status IN ('replied','interested','booked','qualified')${seedExcludeLeads}`
+    `SELECT COUNT(*) as c FROM leads WHERE status IN ('replied','interested','booked','qualified','won')${seedExcludeLeads}`
   ).get() as { c: number })?.c ?? 0;
   const conversionRate = contacted > 0 ? Math.round((replied / contacted) * 100) : 0;
+  const pipelineValue = (db.prepare(`SELECT COALESCE(SUM(deal_value), 0) as total FROM leads WHERE status IN ('new','validated','approved','contacted','replied','interested','booked','qualified')${seedExcludeLeads}`).get() as { total: number })?.total ?? 0;
+  const expectedRevenue = (db.prepare(`SELECT COALESCE(SUM(expected_revenue), 0) as total FROM leads WHERE status IN ('new','validated','approved','contacted','replied','interested','booked','qualified')${seedExcludeLeads}`).get() as { total: number })?.total ?? 0;
+  const wonRevenue = (db.prepare(`SELECT COALESCE(SUM(CASE WHEN won_revenue > 0 THEN won_revenue ELSE deal_value END), 0) as total FROM leads WHERE status = 'won'${seedExcludeLeads}`).get() as { total: number })?.total ?? 0;
+  const wonCount = (db.prepare(`SELECT COUNT(*) as c FROM leads WHERE status = 'won'${seedExcludeLeads}`).get() as { c: number })?.c ?? 0;
+  const lostCount = (db.prepare(`SELECT COUNT(*) as c FROM leads WHERE status = 'lost'${seedExcludeLeads}`).get() as { c: number })?.c ?? 0;
 
   return NextResponse.json({
     leads,
@@ -176,6 +239,12 @@ export async function GET(request: Request) {
       pending_approvals: pendingApprovals,
       emails_sent: emailsSent,
       conversion_rate: conversionRate,
+      pipeline_value: pipelineValue,
+      expected_revenue: expectedRevenue,
+      won_revenue: wonRevenue,
+      won_count: wonCount,
+      lost_count: lostCount,
+      persistent: false,
     },
   });
 }
@@ -223,10 +292,10 @@ export async function PATCH(request: Request) {
     }
 
     // Lead update
-    const allowed = ["status", "tier", "notes", "pause_outreach", "next_action_at"]; 
+    const allowed = ["status", "tier", "notes", "pause_outreach", "next_action_at", "closed_at", "lost_reason"]; 
     const cols: string[] = [];
     const params: unknown[] = [];
-    const before = db.prepare('SELECT status, tier, notes, pause_outreach, next_action_at FROM leads WHERE id = ?').get(id) as Lead | undefined;
+    const before = await crmGet<Lead>('SELECT * FROM leads WHERE id = ?', [id]);
 
     for (const key of allowed) {
       if (updates[key] !== undefined) {
@@ -249,10 +318,13 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
+    if ((updates.status === 'won' || updates.status === 'lost') && updates.closed_at === undefined) {
+      cols.push("closed_at = datetime('now')");
+    }
     cols.push("last_touch_at = datetime('now')");
     params.push(id);
 
-    db.prepare(`UPDATE leads SET ${cols.join(', ')} WHERE id = ?`).run(...params);
+    await crmRun(`UPDATE leads SET ${cols.join(', ')} WHERE id = ?`, params as Array<string | number | boolean | null>);
 
     // Writeback to state file
     const writebackUpdates: Record<string, unknown> = {};
@@ -261,7 +333,7 @@ export async function PATCH(request: Request) {
     }
     writebackLeadUpdate(id, writebackUpdates);
 
-    const lead = db.prepare('SELECT * FROM leads WHERE id = ?').get(id);
+    const lead = await crmGet('SELECT * FROM leads WHERE id = ?', [id]);
     if (before) {
       const changes: string[] = [];
       if (updates.status && before.status !== updates.status) changes.push(`status: ${before.status} -> ${updates.status}`);

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { crmAll, crmGet, crmRun, hasRemoteCrmDb } from '@/lib/crm-db';
 import { getLeads, getLeadFunnel, updateLeadStatus } from '@/lib/queries';
 import {
   writebackLeadCreate,
@@ -21,6 +22,8 @@ const ALLOWED_LEAD_STATUSES = new Set([
   'interested',
   'booked',
   'qualified',
+  'won',
+  'lost',
   'rejected',
   'disqualified',
 ]);
@@ -36,6 +39,13 @@ function asOptionalString(value: unknown, maxLen: number): string | undefined {
 function asNullableString(value: unknown, maxLen: number): string | null | undefined {
   if (value === null) return null;
   return asOptionalString(value, maxLen);
+}
+
+function asOptionalMoney(value: unknown): number | null | undefined {
+  if (value === null) return null;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+  if (value < 0 || value > 1_000_000_000_000_000) return undefined;
+  return Math.round(value);
 }
 
 function asOptionalInt(value: unknown, opts: { min: number; max: number }): number | undefined {
@@ -93,19 +103,47 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const real = searchParams.get("real") === "true";
 
-  if (searchParams.get("funnel") === "true") {
-    return NextResponse.json(getLeadFunnel({ excludeSeed: real }));
+  if (!hasRemoteCrmDb()) {
+    if (searchParams.get("funnel") === "true") {
+      return NextResponse.json(getLeadFunnel({ excludeSeed: real }));
+    }
+    const localLeads = getLeads({
+      status: searchParams.get("status") || undefined,
+      tier: searchParams.get("tier") || undefined,
+      segment: searchParams.get("segment") || undefined,
+      sort: searchParams.get("sort") || undefined,
+      order: (searchParams.get("order") as "asc" | "desc") || undefined,
+      excludeSeed: real,
+    });
+    return NextResponse.json(localLeads);
   }
 
-  const leads = getLeads({
-    status: searchParams.get("status") || undefined,
-    tier: searchParams.get("tier") || undefined,
-    segment: searchParams.get("segment") || undefined,
-    sort: searchParams.get("sort") || undefined,
-    order: (searchParams.get("order") as "asc" | "desc") || undefined,
-    excludeSeed: real,
+  const allLeads = await crmAll<Record<string, unknown>>('SELECT * FROM leads ORDER BY created_at DESC');
+  if (searchParams.get("funnel") === "true") {
+    const statuses = ['new','validated','approved','contacted','replied','interested','booked','qualified','won','lost','rejected','disqualified'];
+    return NextResponse.json(statuses.map(name => ({
+      name,
+      value: allLeads.filter(lead => lead.status === name).length,
+    })));
+  }
+
+  let filtered = allLeads;
+  const status = searchParams.get('status');
+  const tier = searchParams.get('tier');
+  const segment = searchParams.get('segment');
+  if (status) filtered = filtered.filter(lead => lead.status === status);
+  if (tier) filtered = filtered.filter(lead => lead.tier === tier);
+  if (segment) filtered = filtered.filter(lead => lead.industry_segment === segment);
+
+  const sort = searchParams.get('sort') === 'created_at' ? 'created_at' : 'score';
+  const order = searchParams.get('order') === 'asc' ? 1 : -1;
+  filtered.sort((a, b) => {
+    const av = sort === 'score' ? Number(a.score || 0) : new Date(String(a.created_at || 0)).getTime();
+    const bv = sort === 'score' ? Number(b.score || 0) : new Date(String(b.created_at || 0)).getTime();
+    return (av - bv) * order;
   });
-  return NextResponse.json(leads);
+
+  return NextResponse.json(filtered);
 }
 
 export async function POST(req: NextRequest) {
@@ -143,6 +181,12 @@ export async function POST(req: NextRequest) {
   if (body?.email !== undefined && email === undefined) {
     return NextResponse.json({ error: 'Invalid email' }, { status: 400 });
   }
+  const dealValue = asOptionalMoney(body?.deal_value);
+  const expectedRevenue = asOptionalMoney(body?.expected_revenue);
+  const wonRevenue = asOptionalMoney(body?.won_revenue);
+  if (body?.deal_value !== undefined && dealValue === undefined) return NextResponse.json({ error: 'Invalid deal_value' }, { status: 400 });
+  if (body?.expected_revenue !== undefined && expectedRevenue === undefined) return NextResponse.json({ error: 'Invalid expected_revenue' }, { status: 400 });
+  if (body?.won_revenue !== undefined && wonRevenue === undefined) return NextResponse.json({ error: 'Invalid won_revenue' }, { status: 400 });
 
   const id = makeLeadId();
   const lead = {
@@ -154,13 +198,22 @@ export async function POST(req: NextRequest) {
     company_size: asNullableString(body?.company_size, 40) ?? null,
     industry_segment: asNullableString(body?.industry_segment, 120) ?? null,
     source: asNullableString(body?.source, 120) ?? null,
+    source_channel: asNullableString(body?.source_channel, 80) ?? null,
     email: email ?? null,
+    phone: asNullableString(body?.phone, 40) ?? null,
     linkedin_url: asNullableString(body?.linkedin_url, 400) ?? null,
+    assigned_to: asNullableString(body?.assigned_to, 120) ?? null,
+    service_interest: asNullableString(body?.service_interest, 160) ?? null,
     status,
     score: score ?? null,
     tier: tier ?? null,
+    deal_value: dealValue ?? 0,
+    expected_revenue: expectedRevenue ?? dealValue ?? 0,
+    won_revenue: wonRevenue ?? (status === 'won' ? (dealValue ?? 0) : 0),
     last_touch_at: null as string | null,
     next_action_at: nextActionAt ?? null,
+    closed_at: status === 'won' || status === 'lost' ? new Date().toISOString() : null as string | null,
+    lost_reason: asNullableString(body?.lost_reason, 500) ?? null,
     sequence_name: null as string | null,
     reply_type: null as string | null,
     notes: asNullableString(body?.notes, 20_000) ?? null,
@@ -168,16 +221,16 @@ export async function POST(req: NextRequest) {
     pause_outreach: body?.pause_outreach ? 1 : 0,
   };
 
-  const db = getDb();
-  db.prepare(
+  await crmRun(
     `INSERT INTO leads (
       id, first_name, last_name, title, company, company_size, industry_segment,
-      source, email, linkedin_url, status, score, tier, last_touch_at, next_action_at,
-      sequence_name, reply_type, notes, created_at, pause_outreach
+      source, source_channel, email, phone, linkedin_url, assigned_to, service_interest,
+      status, score, tier, deal_value, expected_revenue, won_revenue, last_touch_at,
+      next_action_at, closed_at, lost_reason, sequence_name, reply_type, notes, created_at, pause_outreach
     ) VALUES (
-      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
     )`,
-  ).run(
+  , [
     lead.id,
     lead.first_name,
     lead.last_name,
@@ -186,19 +239,28 @@ export async function POST(req: NextRequest) {
     lead.company_size,
     lead.industry_segment,
     lead.source,
+    lead.source_channel,
     lead.email,
+    lead.phone,
     lead.linkedin_url,
+    lead.assigned_to,
+    lead.service_interest,
     lead.status,
     lead.score,
     lead.tier,
+    lead.deal_value,
+    lead.expected_revenue,
+    lead.won_revenue,
     lead.last_touch_at,
     lead.next_action_at,
+    lead.closed_at,
+    lead.lost_reason,
     lead.sequence_name,
     lead.reply_type,
     lead.notes,
     lead.created_at,
     lead.pause_outreach,
-  );
+  ]);
 
   writebackLeadCreate(lead);
   logAudit({
@@ -247,6 +309,12 @@ export async function PATCH(req: NextRequest) {
   if (body?.email !== undefined && email === undefined) {
     return NextResponse.json({ error: 'Invalid email' }, { status: 400 });
   }
+  const dealValue = asOptionalMoney(body?.deal_value);
+  const expectedRevenue = asOptionalMoney(body?.expected_revenue);
+  const wonRevenue = asOptionalMoney(body?.won_revenue);
+  if (body?.deal_value !== undefined && dealValue === undefined) return NextResponse.json({ error: 'Invalid deal_value' }, { status: 400 });
+  if (body?.expected_revenue !== undefined && expectedRevenue === undefined) return NextResponse.json({ error: 'Invalid expected_revenue' }, { status: 400 });
+  if (body?.won_revenue !== undefined && wonRevenue === undefined) return NextResponse.json({ error: 'Invalid won_revenue' }, { status: 400 });
 
   const updates: Record<string, unknown> = {};
   const cols: string[] = [];
@@ -266,6 +334,9 @@ export async function PATCH(req: NextRequest) {
     updates.pause_outreach = v;
   }
   if (nextActionAt !== undefined) { add('next_action_at', nextActionAt); updates.next_action_at = nextActionAt; }
+  if (dealValue !== undefined) { add('deal_value', dealValue); updates.deal_value = dealValue; }
+  if (expectedRevenue !== undefined) { add('expected_revenue', expectedRevenue); updates.expected_revenue = expectedRevenue; }
+  if (wonRevenue !== undefined) { add('won_revenue', wonRevenue); updates.won_revenue = wonRevenue; }
 
   const firstName = asNullableString(body?.first_name, 80);
   if (body?.first_name !== undefined && firstName === undefined) {
@@ -309,6 +380,35 @@ export async function PATCH(req: NextRequest) {
   }
   if (source !== undefined) { add('source', source); updates.source = source; }
 
+  for (const [field, maxLen] of [
+    ['source_channel', 80],
+    ['phone', 40],
+    ['assigned_to', 120],
+    ['service_interest', 160],
+    ['lost_reason', 500],
+  ] as const) {
+    const value = asNullableString(body?.[field], maxLen);
+    if (body?.[field] !== undefined && value === undefined) {
+      return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 });
+    }
+    if (value !== undefined) { add(field, value); updates[field] = value; }
+  }
+
+  const closedAt = asNullableIsoDate(body?.closed_at);
+  if (body?.closed_at !== undefined && closedAt === undefined) {
+    return NextResponse.json({ error: 'Invalid closed_at' }, { status: 400 });
+  }
+  if (closedAt !== undefined) { add('closed_at', closedAt); updates.closed_at = closedAt; }
+
+  if (status === 'won' || status === 'lost') {
+    add('closed_at', closedAt ?? new Date().toISOString());
+    updates.closed_at = closedAt ?? new Date().toISOString();
+    if (status === 'won' && wonRevenue === undefined && dealValue !== undefined) {
+      add('won_revenue', dealValue);
+      updates.won_revenue = dealValue;
+    }
+  }
+
   if (email !== undefined) { add('email', email); updates.email = email; }
 
   const linkedinUrl = asNullableString(body?.linkedin_url, 400);
@@ -329,14 +429,13 @@ export async function PATCH(req: NextRequest) {
 
   cols.push("last_touch_at = datetime('now')");
 
-  const db = getDb();
-  const before = db.prepare('SELECT id FROM leads WHERE id = ?').get(id) as { id: string } | undefined;
+  const before = await crmGet<{ id: string }>('SELECT id FROM leads WHERE id = ?', [id]);
   if (!before) {
     return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
   }
 
   params.push(id);
-  db.prepare(`UPDATE leads SET ${cols.join(', ')} WHERE id = ?`).run(...params);
+  await crmRun(`UPDATE leads SET ${cols.join(', ')} WHERE id = ?`, params as Array<string | number | boolean | null>);
 
   if (status) {
     updateLeadStatus(id, status);
@@ -351,7 +450,7 @@ export async function PATCH(req: NextRequest) {
     detail: { updates },
   });
 
-  const lead = db.prepare('SELECT * FROM leads WHERE id = ?').get(id);
+  const lead = await crmGet('SELECT * FROM leads WHERE id = ?', [id]);
   return NextResponse.json({ ok: true, lead });
 }
 
@@ -367,18 +466,27 @@ export async function DELETE(req: NextRequest) {
   }
 
   const db = getDb();
-  const lead = db.prepare('SELECT id FROM leads WHERE id = ?').get(id) as { id: string } | undefined;
+  const lead = await crmGet<{ id: string }>('SELECT id FROM leads WHERE id = ?', [id]);
   if (!lead) {
     return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
   }
 
-  const tx = db.transaction(() => {
-    db.prepare("DELETE FROM seed_registry WHERE table_name = 'sequences' AND record_id IN (SELECT id FROM sequences WHERE lead_id = ?)").run(id);
-    db.prepare('DELETE FROM sequences WHERE lead_id = ?').run(id);
-    db.prepare('DELETE FROM leads WHERE id = ?').run(id);
-    db.prepare("DELETE FROM seed_registry WHERE table_name = 'leads' AND record_id = ?").run(id);
-  });
-  tx();
+  if (hasRemoteCrmDb()) {
+    const tx = db.transaction(() => {
+      db.prepare("DELETE FROM seed_registry WHERE table_name = 'sequences' AND record_id IN (SELECT id FROM sequences WHERE lead_id = ?)").run(id);
+      db.prepare('DELETE FROM sequences WHERE lead_id = ?').run(id);
+    });
+    tx();
+    await crmRun('DELETE FROM leads WHERE id = ?', [id]);
+  } else {
+    const tx = db.transaction(() => {
+      db.prepare("DELETE FROM seed_registry WHERE table_name = 'sequences' AND record_id IN (SELECT id FROM sequences WHERE lead_id = ?)").run(id);
+      db.prepare('DELETE FROM sequences WHERE lead_id = ?').run(id);
+      db.prepare('DELETE FROM leads WHERE id = ?').run(id);
+      db.prepare("DELETE FROM seed_registry WHERE table_name = 'leads' AND record_id = ?").run(id);
+    });
+    tx();
+  }
 
   writebackLeadDelete(id);
   logAudit({

@@ -250,5 +250,16 @@ function migrate(db: Database.Database) {
 
   // Column migrations (safe to re-run)
   try { db.exec("ALTER TABLE leads ADD COLUMN pause_outreach INTEGER DEFAULT 0"); } catch { /* column exists */ }
+  try { db.exec("ALTER TABLE leads ADD COLUMN phone TEXT"); } catch { /* column exists */ }
+  try { db.exec("ALTER TABLE leads ADD COLUMN assigned_to TEXT"); } catch { /* column exists */ }
+  try { db.exec("ALTER TABLE leads ADD COLUMN service_interest TEXT"); } catch { /* column exists */ }
+  try { db.exec("ALTER TABLE leads ADD COLUMN source_channel TEXT"); } catch { /* column exists */ }
+  try { db.exec("ALTER TABLE leads ADD COLUMN deal_value REAL DEFAULT 0"); } catch { /* column exists */ }
+  try { db.exec("ALTER TABLE leads ADD COLUMN expected_revenue REAL DEFAULT 0"); } catch { /* column exists */ }
+  try { db.exec("ALTER TABLE leads ADD COLUMN won_revenue REAL DEFAULT 0"); } catch { /* column exists */ }
+  try { db.exec("ALTER TABLE leads ADD COLUMN closed_at DATETIME"); } catch { /* column exists */ }
+  try { db.exec("ALTER TABLE leads ADD COLUMN lost_reason TEXT"); } catch { /* column exists */ }
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_leads_owner ON leads(assigned_to)"); } catch {}
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_leads_source_channel ON leads(source_channel)"); } catch {}
   try { db.exec("ALTER TABLE content_posts ADD COLUMN image_url TEXT"); } catch { /* column exists */ }
 }

@@ -25,7 +25,7 @@ export interface ContentPost {
 }
 
 // ─── Leads ─────────────────────────────────────────────
-export type LeadStatus = "new" | "validated" | "approved" | "contacted" | "replied" | "interested" | "booked" | "qualified" | "rejected" | "disqualified";
+export type LeadStatus = "new" | "validated" | "approved" | "contacted" | "replied" | "interested" | "booked" | "qualified" | "won" | "lost" | "rejected" | "disqualified";
 export type LeadTier = 'A' | 'B' | 'C';
 
 export interface Lead {
@@ -37,13 +37,22 @@ export interface Lead {
   company_size: string | null;
   industry_segment: string | null;
   source: string | null;
+  source_channel: string | null;
   email: string | null;
+  phone: string | null;
   linkedin_url: string | null;
+  assigned_to: string | null;
+  service_interest: string | null;
   status: LeadStatus;
   score: number | null;
   tier: LeadTier | null;
+  deal_value: number | null;
+  expected_revenue: number | null;
+  won_revenue: number | null;
   last_touch_at: string | null;
   next_action_at: string | null;
+  closed_at: string | null;
+  lost_reason: string | null;
   sequence_name: string | null;
   reply_type: string | null;
   notes: string | null;
