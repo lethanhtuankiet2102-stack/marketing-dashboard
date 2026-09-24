@@ -144,7 +144,7 @@ async function ensureRemoteSchema(): Promise<void> {
   schemaReady = true;
 }
 
-export async function crmAll<T extends Record<string, unknown> = Record<string, unknown>>(
+export async function crmAll<T = Record<string, unknown>>(
   sql: string,
   args: SqlPrimitive[] = [],
 ): Promise<T[]> {
@@ -161,7 +161,7 @@ export async function crmAll<T extends Record<string, unknown> = Record<string, 
   });
 }
 
-export async function crmGet<T extends Record<string, unknown> = Record<string, unknown>>(
+export async function crmGet<T = Record<string, unknown>>(
   sql: string,
   args: SqlPrimitive[] = [],
 ): Promise<T | undefined> {
