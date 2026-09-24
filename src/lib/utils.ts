@@ -101,7 +101,7 @@ export const STATUS_LABELS: Record<string, string> = {
   published: 'Đã đăng', rejected: 'Từ chối', new: 'Mới',
   validated: 'Đã xác minh', approved: 'Đã duyệt', contacted: 'Đã liên hệ',
   replied: 'Đã phản hồi', interested: 'Quan tâm', booked: 'Đã hẹn',
-  qualified: 'Tiềm năng', disqualified: 'Không phù hợp', queued: 'Đang chờ',
+  qualified: 'Tiềm năng', won: 'Đã chốt', lost: 'Mất deal', disqualified: 'Không phù hợp', queued: 'Đang chờ',
   sent: 'Đã gửi', cancelled: 'Đã hủy', pending: 'Đang chờ',
   proposed: 'Đề xuất', running: 'Đang chạy', completed: 'Hoàn tất',
   SCALE: 'Mở rộng', ITERATE: 'Tối ưu', KILL: 'Dừng',

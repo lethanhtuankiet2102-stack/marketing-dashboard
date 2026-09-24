@@ -26,6 +26,12 @@ interface CrmData {
     pending_approvals: number;
     emails_sent: number;
     conversion_rate: number;
+    pipeline_value?: number;
+    expected_revenue?: number;
+    won_revenue?: number;
+    won_count?: number;
+    lost_count?: number;
+    persistent?: boolean;
     tasks_overdue?: number;
     tasks_due_today?: number;
   };
@@ -33,7 +39,7 @@ interface CrmData {
   tasks_due_today?: number;
 }
 
-const STAGES = ['new', 'validated', 'approved', 'contacted', 'replied', 'interested', 'booked', 'qualified'] as const;
+const STAGES = ['new', 'validated', 'approved', 'contacted', 'replied', 'interested', 'booked', 'qualified', 'won', 'lost'] as const;
 
 const STAGE_ICONS: Record<string, typeof Send> = {
   new: CircleDot,
@@ -44,6 +50,8 @@ const STAGE_ICONS: Record<string, typeof Send> = {
   interested: Eye,
   booked: CalendarCheck,
   qualified: Star,
+  won: CheckCircle,
+  lost: XCircle,
   rejected: XCircle,
   disqualified: Ban,
 };
@@ -57,6 +65,8 @@ const STAGE_COLORS: Record<string, string> = {
   interested: 'text-success',
   booked: 'text-success',
   qualified: 'text-success',
+  won: 'text-success',
+  lost: 'text-destructive',
   rejected: 'text-destructive',
   disqualified: 'text-destructive',
 };
@@ -88,12 +98,18 @@ export default function CrmPage() {
     title: '',
     company: '',
     email: '',
+    phone: '',
     linkedin_url: '',
     source: '',
+    source_channel: '',
+    assigned_to: '',
+    service_interest: '',
     industry_segment: '',
     company_size: '',
     score: '',
     tier: '',
+    deal_value: '',
+    expected_revenue: '',
     status: 'new',
     notes: '',
     next_action_at: '',
@@ -225,8 +241,12 @@ export default function CrmPage() {
         title: createForm.title || null,
         company: createForm.company || null,
         email: createForm.email || null,
+        phone: createForm.phone || null,
         linkedin_url: createForm.linkedin_url || null,
         source: createForm.source || null,
+        source_channel: createForm.source_channel || null,
+        assigned_to: createForm.assigned_to || null,
+        service_interest: createForm.service_interest || null,
         industry_segment: createForm.industry_segment || null,
         company_size: createForm.company_size || null,
         tier: createForm.tier || null,
@@ -237,6 +257,8 @@ export default function CrmPage() {
           : null,
       };
       if (createForm.score.trim()) payload.score = Number(createForm.score);
+      if (createForm.deal_value.trim()) payload.deal_value = Number(createForm.deal_value);
+      if (createForm.expected_revenue.trim()) payload.expected_revenue = Number(createForm.expected_revenue);
 
       const res = await fetch('/api/leads', {
         method: 'POST',
@@ -253,12 +275,18 @@ export default function CrmPage() {
         title: '',
         company: '',
         email: '',
+        phone: '',
         linkedin_url: '',
         source: '',
+        source_channel: '',
+        assigned_to: '',
+        service_interest: '',
         industry_segment: '',
         company_size: '',
         score: '',
         tier: '',
+        deal_value: '',
+        expected_revenue: '',
         status: 'new',
         notes: '',
         next_action_at: '',
@@ -312,11 +340,26 @@ export default function CrmPage() {
                 <input name="title" aria-label="Title" autoComplete="organization-title" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Chức danh" value={createForm.title} onChange={(e) => setCreateForm(v => ({ ...v, title: e.target.value }))} />
                 <input name="company" aria-label="Company" autoComplete="organization" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Doanh nghiệp" value={createForm.company} onChange={(e) => setCreateForm(v => ({ ...v, company: e.target.value }))} />
                 <input name="email" aria-label="Email" autoComplete="email" type="email" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Email" value={createForm.email} onChange={(e) => setCreateForm(v => ({ ...v, email: e.target.value }))} />
+                <input name="phone" aria-label="Số điện thoại" autoComplete="tel" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Số điện thoại" value={createForm.phone} onChange={(e) => setCreateForm(v => ({ ...v, phone: e.target.value }))} />
                 <input name="linkedin_url" aria-label="LinkedIn URL" autoComplete="url" type="url" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="LinkedIn URL" value={createForm.linkedin_url} onChange={(e) => setCreateForm(v => ({ ...v, linkedin_url: e.target.value }))} />
-                <input name="source" aria-label="Source" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Nguồn lead" value={createForm.source} onChange={(e) => setCreateForm(v => ({ ...v, source: e.target.value }))} />
+                <input name="source" aria-label="Source" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Nguồn chi tiết (VD: Form landing page)" value={createForm.source} onChange={(e) => setCreateForm(v => ({ ...v, source: e.target.value }))} />
+                <select name="source_channel" aria-label="Kênh lead" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" value={createForm.source_channel} onChange={(e) => setCreateForm(v => ({ ...v, source_channel: e.target.value }))}>
+                  <option value="">Kênh lead</option>
+                  <option value="Facebook Ads">Facebook Ads</option>
+                  <option value="Google Ads">Google Ads</option>
+                  <option value="TikTok Ads">TikTok Ads</option>
+                  <option value="Website">Website</option>
+                  <option value="Referral">Giới thiệu</option>
+                  <option value="Organic">Organic</option>
+                  <option value="Khác">Khác</option>
+                </select>
+                <input name="assigned_to" aria-label="Người phụ trách" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Người phụ trách" value={createForm.assigned_to} onChange={(e) => setCreateForm(v => ({ ...v, assigned_to: e.target.value }))} />
+                <input name="service_interest" aria-label="Dịch vụ quan tâm" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Dịch vụ quan tâm" value={createForm.service_interest} onChange={(e) => setCreateForm(v => ({ ...v, service_interest: e.target.value }))} />
                 <input name="industry_segment" aria-label="Industry segment" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Ngành" value={createForm.industry_segment} onChange={(e) => setCreateForm(v => ({ ...v, industry_segment: e.target.value }))} />
                 <input name="company_size" aria-label="Company size" autoComplete="off" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Quy mô doanh nghiệp" value={createForm.company_size} onChange={(e) => setCreateForm(v => ({ ...v, company_size: e.target.value }))} />
                 <input name="score" aria-label="Score" inputMode="numeric" type="number" min={0} max={100} className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Điểm lead (0-100)" value={createForm.score} onChange={(e) => setCreateForm(v => ({ ...v, score: e.target.value }))} />
+                <input name="deal_value" aria-label="Giá trị deal" inputMode="numeric" type="number" min={0} className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Giá trị deal (VNĐ)" value={createForm.deal_value} onChange={(e) => setCreateForm(v => ({ ...v, deal_value: e.target.value }))} />
+                <input name="expected_revenue" aria-label="Doanh thu dự kiến" inputMode="numeric" type="number" min={0} className="px-3 py-2 rounded-lg border border-border bg-background text-sm" placeholder="Doanh thu dự kiến (VNĐ)" value={createForm.expected_revenue} onChange={(e) => setCreateForm(v => ({ ...v, expected_revenue: e.target.value }))} />
                 <select name="tier" aria-label="Tier" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" value={createForm.tier} onChange={(e) => setCreateForm(v => ({ ...v, tier: e.target.value }))}>
                   <option value="">Nhóm lead (không bắt buộc)</option>
                   <option value="A">A</option>
@@ -324,7 +367,7 @@ export default function CrmPage() {
                   <option value="C">C</option>
                 </select>
                 <select name="status" aria-label="Stage" className="px-3 py-2 rounded-lg border border-border bg-background text-sm" value={createForm.status} onChange={(e) => setCreateForm(v => ({ ...v, status: e.target.value }))}>
-                  {['new','validated','approved','contacted','replied','interested','booked','qualified','rejected','disqualified'].map(s => (
+                  {['new','validated','approved','contacted','replied','interested','booked','qualified','won','lost','rejected','disqualified'].map(s => (
                     <option key={s} value={s}>{STATUS_LABELS[s] || s}</option>
                   ))}
                 </select>
@@ -356,6 +399,9 @@ export default function CrmPage() {
           <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
             <span><strong className="text-foreground">{data.summary.total}</strong> lead</span>
             <span>điểm TB <strong className="text-foreground">{data.summary.avg_score}</strong></span>
+            <span className={`badge border ${data.summary.persistent ? 'bg-success/15 text-success border-success/30' : 'bg-warning/15 text-warning border-warning/30'}`}>
+              {data.summary.persistent ? 'DB bền vững' : 'DB tạm thời'}
+            </span>
             {data.summary.tier_breakdown.map(t => (
               <span key={t.tier} className={`badge border ${TIER_COLORS[t.tier] || ''}`}>
                 Tier {t.tier}: {t.c}
@@ -405,6 +451,26 @@ export default function CrmPage() {
             </div>
             <div className="text-lg font-semibold text-primary">{data.summary.conversion_rate}%</div>
             <div className="text-[10px] text-muted-foreground">phản hồi / liên hệ</div>
+          </div>
+        </div>
+      )}
+
+      {data?.summary && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="stat-tile">
+            <div className="text-xs text-muted-foreground mb-1">Giá trị pipeline</div>
+            <div className="text-lg font-semibold text-primary">{formatVnd(data.summary.pipeline_value ?? 0)}</div>
+            <div className="text-[10px] text-muted-foreground">Tổng giá trị deal đang mở</div>
+          </div>
+          <div className="stat-tile">
+            <div className="text-xs text-muted-foreground mb-1">Doanh thu dự kiến</div>
+            <div className="text-lg font-semibold text-warning">{formatVnd(data.summary.expected_revenue ?? 0)}</div>
+            <div className="text-[10px] text-muted-foreground">Dự kiến từ pipeline hiện tại</div>
+          </div>
+          <div className="stat-tile">
+            <div className="text-xs text-muted-foreground mb-1">Doanh thu đã chốt</div>
+            <div className="text-lg font-semibold text-success">{formatVnd(data.summary.won_revenue ?? 0)}</div>
+            <div className="text-[10px] text-muted-foreground">{data.summary.won_count ?? 0} deal thắng · {data.summary.lost_count ?? 0} deal mất</div>
           </div>
         </div>
       )}
@@ -674,6 +740,14 @@ export default function CrmPage() {
   );
 }
 
+function formatVnd(value: number): string {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
 /* ─── Kanban Board ─────────────────────────────────────── */
 
 function KanbanBoard({
@@ -899,7 +973,7 @@ function KanbanColumn({
       {/* Column header */}
       <div className="flex items-center gap-2 px-2 py-2 mb-2">
         <Icon size={13} className={STAGE_COLORS[stage]} />
-        <span className="text-xs font-medium capitalize">{stage}</span>
+        <span className="text-xs font-medium">{STATUS_LABELS[stage] || stage}</span>
         <span className="text-[10px] font-mono bg-muted/50 px-1.5 py-0.5 rounded ml-auto">{count}</span>
       </div>
 
@@ -991,7 +1065,7 @@ function KanbanCard({ lead, selected, onSelect, nowMs, canEdit, slaStaleDays, sl
           <span className={`px-1.5 py-0.5 rounded-full ${
             newDays > slaNewDays ? 'bg-destructive/15 text-destructive' : 'bg-warning/15 text-warning'
           }`}>
-            new {newDays}d
+            mới {newDays} ngày
           </span>
         )}
         {(staleDays !== null && staleDays > slaStaleDays) && (
@@ -1001,12 +1075,12 @@ function KanbanCard({ lead, selected, onSelect, nowMs, canEdit, slaStaleDays, sl
         )}
         {lead.next_action_at && (
           <span className="px-1.5 py-0.5 rounded-full bg-info/15 text-info">
-            next {timeAgo(lead.next_action_at)}
+            tiếp theo {timeAgo(lead.next_action_at)}
           </span>
         )}
         {(missingEmail || missingCompany || missingIndustry) && (
           <span className="px-1.5 py-0.5 rounded-full bg-warning/15 text-warning flex items-center gap-1">
-            <AlertCircle size={9} /> missing
+            <AlertCircle size={9} /> thiếu dữ liệu
           </span>
         )}
       </div>
@@ -1081,6 +1155,12 @@ function LeadRow({ lead, selected, onClick, nowMs, slaStaleDays, slaNewDays }: {
             </span>
           )}
           {lead.title && <span className="truncate">{lead.title}</span>}
+          {lead.phone && <span className="truncate">{lead.phone}</span>}
+        </div>
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-1 flex-wrap">
+          {lead.service_interest && <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary">{lead.service_interest}</span>}
+          {lead.assigned_to && <span>Phụ trách: {lead.assigned_to}</span>}
+          {(lead.deal_value ?? 0) > 0 && <span className="font-medium text-success">{formatVnd(lead.deal_value ?? 0)}</span>}
         </div>
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-1 flex-wrap">
           {lead.last_touch_at && (
@@ -1098,7 +1178,7 @@ function LeadRow({ lead, selected, onClick, nowMs, slaStaleDays, slaNewDays }: {
             <span className={`px-2 py-0.5 rounded-full ${
               newDays > slaNewDays ? 'bg-destructive/15 text-destructive' : 'bg-warning/15 text-warning'
             }`}>
-              new {newDays}d
+              mới {newDays} ngày
             </span>
           )}
           {(staleDays !== null && staleDays > slaStaleDays) && (
@@ -1108,15 +1188,15 @@ function LeadRow({ lead, selected, onClick, nowMs, slaStaleDays, slaNewDays }: {
           )}
           {lead.next_action_at && (
             <span className="px-2 py-0.5 rounded-full bg-info/15 text-info">
-              next {timeAgo(lead.next_action_at)}
+              tiếp theo {timeAgo(lead.next_action_at)}
             </span>
           )}
           {(missingEmail || missingCompany || missingIndustry) && (
             <span className="px-2 py-0.5 rounded-full bg-warning/15 text-warning flex items-center gap-1">
-              <AlertCircle size={10} /> missing {[
+              <AlertCircle size={10} /> thiếu {[
                 missingEmail ? 'email' : null,
-                missingCompany ? 'company' : null,
-                missingIndustry ? 'industry' : null,
+                missingCompany ? 'doanh nghiệp' : null,
+                missingIndustry ? 'ngành' : null,
               ].filter(Boolean).join(', ')}
             </span>
           )}

@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Mail, Linkedin, Clock, ChevronLeft, ChevronRight, Check, XCircle, Save, X, Ban, Pause, Play, Trash2, Edit3, Loader2, ChevronDown, ChevronUp, Send, CheckCircle, MessageSquare, Eye, CalendarCheck, Star, CircleDot } from 'lucide-react';
+import { Mail, Phone, Linkedin, Clock, ChevronLeft, ChevronRight, Check, XCircle, Save, X, Ban, Pause, Play, Trash2, Edit3, Loader2, ChevronDown, ChevronUp, Send, CheckCircle, MessageSquare, Eye, CalendarCheck, Star, CircleDot } from 'lucide-react';
 import { useSmartPoll } from '@/hooks/use-smart-poll';
 import { timeAgo, STATUS_LABELS } from '@/lib/utils';
 import type { Lead, Sequence } from '@/types';
 
-const STAGES = ['new', 'validated', 'approved', 'contacted', 'replied', 'interested', 'booked', 'qualified'] as const;
+const STAGES = ['new', 'validated', 'approved', 'contacted', 'replied', 'interested', 'booked', 'qualified', 'won', 'lost'] as const;
 
 const STAGE_ICONS: Record<string, typeof Send> = {
   new: CircleDot,
@@ -17,6 +17,8 @@ const STAGE_ICONS: Record<string, typeof Send> = {
   interested: Eye,
   booked: CalendarCheck,
   qualified: Star,
+  won: CheckCircle,
+  lost: XCircle,
   rejected: XCircle,
   disqualified: Ban,
 };
@@ -64,8 +66,16 @@ export function LeadDetailPanel({
     company_size: '',
     industry_segment: '',
     source: '',
+    source_channel: '',
     email: '',
+    phone: '',
     linkedin_url: '',
+    assigned_to: '',
+    service_interest: '',
+    deal_value: '',
+    expected_revenue: '',
+    won_revenue: '',
+    lost_reason: '',
     score: '',
   });
 
@@ -93,8 +103,16 @@ export function LeadDetailPanel({
         company_size: data.lead.company_size || '',
         industry_segment: data.lead.industry_segment || '',
         source: data.lead.source || '',
+        source_channel: data.lead.source_channel || '',
         email: data.lead.email || '',
+        phone: data.lead.phone || '',
         linkedin_url: data.lead.linkedin_url || '',
+        assigned_to: data.lead.assigned_to || '',
+        service_interest: data.lead.service_interest || '',
+        deal_value: typeof data.lead.deal_value === 'number' ? String(data.lead.deal_value) : '',
+        expected_revenue: typeof data.lead.expected_revenue === 'number' ? String(data.lead.expected_revenue) : '',
+        won_revenue: typeof data.lead.won_revenue === 'number' ? String(data.lead.won_revenue) : '',
+        lost_reason: data.lead.lost_reason || '',
         score: typeof data.lead.score === 'number' ? String(data.lead.score) : '',
       });
     }
@@ -138,8 +156,16 @@ export function LeadDetailPanel({
         company_size: profileDraft.company_size.trim() || null,
         industry_segment: profileDraft.industry_segment.trim() || null,
         source: profileDraft.source.trim() || null,
+        source_channel: profileDraft.source_channel.trim() || null,
         email: profileDraft.email.trim() || null,
+        phone: profileDraft.phone.trim() || null,
         linkedin_url: profileDraft.linkedin_url.trim() || null,
+        assigned_to: profileDraft.assigned_to.trim() || null,
+        service_interest: profileDraft.service_interest.trim() || null,
+        deal_value: profileDraft.deal_value.trim() ? Number(profileDraft.deal_value) : null,
+        expected_revenue: profileDraft.expected_revenue.trim() ? Number(profileDraft.expected_revenue) : null,
+        won_revenue: profileDraft.won_revenue.trim() ? Number(profileDraft.won_revenue) : null,
+        lost_reason: profileDraft.lost_reason.trim() || null,
         score: profileDraft.score.trim() ? Number(profileDraft.score) : null,
       };
 
@@ -294,6 +320,12 @@ export function LeadDetailPanel({
               <span className="font-mono truncate">{lead.email}</span>
             </a>
           )}
+          {lead.phone && (
+            <a href={`tel:${lead.phone}`} className="flex items-center gap-2 text-xs hover:text-primary transition-colors">
+              <Phone size={12} className="text-muted-foreground shrink-0" />
+              <span className="font-mono truncate">{lead.phone}</span>
+            </a>
+          )}
           {lead.linkedin_url && (
             <a
               href={lead.linkedin_url.startsWith('http') ? lead.linkedin_url : `https://${lead.linkedin_url}`}
@@ -330,11 +362,19 @@ export function LeadDetailPanel({
                 <input name="title" aria-label="Title" autoComplete="organization-title" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Chức danh" value={profileDraft.title} onChange={(e) => setProfileDraft(v => ({ ...v, title: e.target.value }))} />
                 <input name="company" aria-label="Company" autoComplete="organization" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Doanh nghiệp" value={profileDraft.company} onChange={(e) => setProfileDraft(v => ({ ...v, company: e.target.value }))} />
                 <input name="email" aria-label="Email" autoComplete="email" type="email" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Email" value={profileDraft.email} onChange={(e) => setProfileDraft(v => ({ ...v, email: e.target.value }))} />
+                <input name="phone" aria-label="Số điện thoại" autoComplete="tel" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Số điện thoại" value={profileDraft.phone} onChange={(e) => setProfileDraft(v => ({ ...v, phone: e.target.value }))} />
                 <input name="linkedin_url" aria-label="LinkedIn URL" autoComplete="url" type="url" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="LinkedIn URL" value={profileDraft.linkedin_url} onChange={(e) => setProfileDraft(v => ({ ...v, linkedin_url: e.target.value }))} />
-                <input name="source" aria-label="Source" autoComplete="off" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Nguồn" value={profileDraft.source} onChange={(e) => setProfileDraft(v => ({ ...v, source: e.target.value }))} />
+                <input name="source" aria-label="Source" autoComplete="off" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Nguồn chi tiết" value={profileDraft.source} onChange={(e) => setProfileDraft(v => ({ ...v, source: e.target.value }))} />
+                <input name="source_channel" aria-label="Kênh lead" autoComplete="off" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Kênh lead" value={profileDraft.source_channel} onChange={(e) => setProfileDraft(v => ({ ...v, source_channel: e.target.value }))} />
+                <input name="assigned_to" aria-label="Người phụ trách" autoComplete="off" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Người phụ trách" value={profileDraft.assigned_to} onChange={(e) => setProfileDraft(v => ({ ...v, assigned_to: e.target.value }))} />
+                <input name="service_interest" aria-label="Dịch vụ quan tâm" autoComplete="off" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Dịch vụ quan tâm" value={profileDraft.service_interest} onChange={(e) => setProfileDraft(v => ({ ...v, service_interest: e.target.value }))} />
                 <input name="industry_segment" aria-label="Industry segment" autoComplete="off" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Ngành" value={profileDraft.industry_segment} onChange={(e) => setProfileDraft(v => ({ ...v, industry_segment: e.target.value }))} />
                 <input name="company_size" aria-label="Company size" autoComplete="off" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Quy mô" value={profileDraft.company_size} onChange={(e) => setProfileDraft(v => ({ ...v, company_size: e.target.value }))} />
                 <input name="score" aria-label="Score" inputMode="numeric" type="number" min={0} max={100} className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Điểm (0-100)" value={profileDraft.score} onChange={(e) => setProfileDraft(v => ({ ...v, score: e.target.value }))} />
+                <input name="deal_value" aria-label="Giá trị deal" inputMode="numeric" type="number" min={0} className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Giá trị deal (VNĐ)" value={profileDraft.deal_value} onChange={(e) => setProfileDraft(v => ({ ...v, deal_value: e.target.value }))} />
+                <input name="expected_revenue" aria-label="Doanh thu dự kiến" inputMode="numeric" type="number" min={0} className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Doanh thu dự kiến" value={profileDraft.expected_revenue} onChange={(e) => setProfileDraft(v => ({ ...v, expected_revenue: e.target.value }))} />
+                <input name="won_revenue" aria-label="Doanh thu đã chốt" inputMode="numeric" type="number" min={0} className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Doanh thu đã chốt" value={profileDraft.won_revenue} onChange={(e) => setProfileDraft(v => ({ ...v, won_revenue: e.target.value }))} />
+                <input name="lost_reason" aria-label="Lý do mất deal" autoComplete="off" className="px-2 py-1 rounded-md border border-border bg-background text-xs" placeholder="Lý do mất deal" value={profileDraft.lost_reason} onChange={(e) => setProfileDraft(v => ({ ...v, lost_reason: e.target.value }))} />
               </div>
               <div className="flex items-center justify-end gap-2">
                 <button
@@ -361,6 +401,10 @@ export function LeadDetailPanel({
               <div className="flex justify-between gap-2"><span className="text-muted-foreground">Ngành</span><span className="truncate">{lead.industry_segment || '—'}</span></div>
               <div className="flex justify-between gap-2"><span className="text-muted-foreground">Quy mô</span><span className="truncate">{lead.company_size || '—'}</span></div>
               <div className="flex justify-between gap-2"><span className="text-muted-foreground">Email</span><span className="truncate">{lead.email || '—'}</span></div>
+              <div className="flex justify-between gap-2"><span className="text-muted-foreground">SĐT</span><span className="truncate">{lead.phone || '—'}</span></div>
+              <div className="flex justify-between gap-2"><span className="text-muted-foreground">Kênh</span><span className="truncate">{lead.source_channel || '—'}</span></div>
+              <div className="flex justify-between gap-2"><span className="text-muted-foreground">Phụ trách</span><span className="truncate">{lead.assigned_to || '—'}</span></div>
+              <div className="flex justify-between gap-2 col-span-2"><span className="text-muted-foreground">Dịch vụ</span><span className="truncate">{lead.service_interest || '—'}</span></div>
             </div>
           )}
         </div>
@@ -381,6 +425,21 @@ export function LeadDetailPanel({
           </div>
         </div>
 
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-muted/30 rounded-lg p-2">
+            <div className="text-[9px] text-muted-foreground uppercase">Giá trị deal</div>
+            <div className="text-xs font-semibold mt-1">{formatVnd(lead.deal_value ?? 0)}</div>
+          </div>
+          <div className="bg-muted/30 rounded-lg p-2">
+            <div className="text-[9px] text-muted-foreground uppercase">Dự kiến</div>
+            <div className="text-xs font-semibold mt-1 text-warning">{formatVnd(lead.expected_revenue ?? 0)}</div>
+          </div>
+          <div className="bg-muted/30 rounded-lg p-2">
+            <div className="text-[9px] text-muted-foreground uppercase">Đã chốt</div>
+            <div className="text-xs font-semibold mt-1 text-success">{formatVnd(lead.won_revenue ?? 0)}</div>
+          </div>
+        </div>
+
         {/* Stage Controls */}
         <div className="flex items-center gap-2">
           <button
@@ -391,7 +450,7 @@ export function LeadDetailPanel({
             type="button"
           >
             <ChevronLeft size={14} />
-            {canRevert ? STAGES[currentStageIdx - 1] : 'Back'}
+            {canRevert ? (STATUS_LABELS[STAGES[currentStageIdx - 1]] || STAGES[currentStageIdx - 1]) : 'Quay lại'}
           </button>
           <button
             disabled={!canEdit || !canAdvance || saving}
@@ -400,7 +459,7 @@ export function LeadDetailPanel({
             title="Giai đoạn tiếp theo"
             type="button"
           >
-            {canAdvance ? STAGES[currentStageIdx + 1] : 'Done'}
+            {canAdvance ? (STATUS_LABELS[STAGES[currentStageIdx + 1]] || STAGES[currentStageIdx + 1]) : 'Hoàn tất'}
             <ChevronRight size={14} />
           </button>
           {lead.status !== 'disqualified' && lead.status !== 'rejected' && (
@@ -539,8 +598,8 @@ export function LeadDetailPanel({
                 <Send size={12} /> Chuỗi email ({sequences.length})
               </h4>
               <div className="flex items-center gap-2 text-[10px]">
-                {sentCount > 0 && <span className="text-success">{sentCount} sent</span>}
-                {pendingCount > 0 && <span className="text-warning">{pendingCount} pending</span>}
+                {sentCount > 0 && <span className="text-success">{sentCount} đã gửi</span>}
+                {pendingCount > 0 && <span className="text-warning">{pendingCount} chờ duyệt</span>}
               </div>
             </div>
 
@@ -563,7 +622,7 @@ export function LeadDetailPanel({
                     type="button"
                   >
                     <div className="truncate text-left">
-                      <span className="text-muted-foreground">Step {seq.step}: </span>
+                      <span className="text-muted-foreground">Bước {seq.step}: </span>
                       {seq.subject || 'Không có tiêu đề'}
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-2">
@@ -574,7 +633,7 @@ export function LeadDetailPanel({
                         seq.status === 'cancelled' ? 'text-destructive' :
                         'text-muted-foreground'
                       }`}>
-                        {seq.status === 'pending_approval' ? 'pending' : seq.status}
+                        {STATUS_LABELS[seq.status || ''] || seq.status}
                       </span>
                       {expandedSeq === seq.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                     </div>
@@ -635,3 +694,11 @@ export function LeadDetailPanel({
   );
 }
 
+
+function formatVnd(value: number): string {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
