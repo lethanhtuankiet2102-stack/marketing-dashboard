@@ -21,4 +21,4 @@ Report data in `labcos/google-ads-summary.json`, `labcos/sale-performance.json`,
 
 ## Development
 
-From this directory, run `pnpm install` and `pnpm build`. Never commit `.env` files or downloaded reports.
+From this directory, run `pnpm install --ignore-workspace` and `pnpm build`. The Vercel project uses the same isolated install command. Never commit `.env` files or downloaded reports.
