@@ -133,7 +133,7 @@ export default function Dashboard() {
           {tab==='meta'&&<MetaPanel canEdit={canEdit}/>}
           {tab==='marketing'&&<MarketingOverviewPanel onNavigate={navigate} contentCount={content.length}/>}
           {tab==='google'&&<GoogleAdsPanel/>}
-          {tab==='list-lead'&&<ListLeadPanel/>}
+          {tab==='list-lead'&&<ListLeadPanel canEdit={canEdit}/>}
           {tab==='sale-performance'&&<SalePerformancePanel/>}
           {tab==='sale-lead-report'&&<SaleLeadReportPanel/>}
           {tab==='users'&&canEdit&&<UserAccessPanel/>}

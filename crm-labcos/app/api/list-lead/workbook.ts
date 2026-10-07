@@ -37,7 +37,10 @@ export function parseLeadWorkbook(buffer:ArrayBuffer) {
   const zip=unzipSync(new Uint8Array(buffer),{filter:file=>file.name==='xl/workbook.xml'||file.name==='xl/_rels/workbook.xml.rels'||file.name==='xl/sharedStrings.xml'||/^xl\/worksheets\/sheet\d+\.xml$/.test(file.name)});
   const read=(path:string)=>zip[path] ? strFromU8(zip[path]) : '';
   const workbook=read('xl/workbook.xml');
-  const sheet=[...workbook.matchAll(/<sheet\s+([^>]*?)\/?\s*>/g)].find(m=>/\bname="LEAD LIST "/.test(m[1]));
+  const sheet=[...workbook.matchAll(/<sheet\s+([^>]*?)\/?\s*>/g)].find(m=>{
+    const name=decodeXml(m[1].match(/\bname="([^"]+)"/)?.[1]||'').trim().replace(/\s+/g,' ').toUpperCase();
+    return name==='LEAD LIST'||name==='LIST LEAD';
+  });
   const relationship=sheet?.[1].match(/\br:id="([^"]+)"/)?.[1];
   const rels=read('xl/_rels/workbook.xml.rels');
   const target=[...rels.matchAll(/<Relationship\s+([^>]*?)\/?\s*>/g)].find(m=>m[1].includes(`Id="${relationship}"`))?.[1].match(/\bTarget="([^"]+)"/)?.[1];

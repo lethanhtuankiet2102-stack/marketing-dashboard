@@ -1,17 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Download, RefreshCw, Search, Users } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { CalendarDays, ChevronLeft, ChevronRight, Download, RefreshCw, Search, Users, Upload } from 'lucide-react';
 import { listLeadChannel } from './list-lead-summary';
 
 type Item = { id:string; sheetRow:number; date:string; number:string; name:string; phone:string; status:string; sales:string; need:string; note:string };
-type Payload = { source:string; fromDate:string; throughDate:string; items:Item[]; live?:boolean; lastSyncedAt?:string|null; warning?:string; error?:string };
+type Payload = { source:string; fromDate:string; throughDate:string; items:Item[]; live?:boolean; manual?:boolean; fileName?:string; lastSyncedAt?:string|null; warning?:string; error?:string };
 const formatDate = (value:string) => `${value.slice(8,10)}/${value.slice(5,7)}/${value.slice(0,4)}`;
 const normalized = (value:string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').toLowerCase();
 const leadSource = (item:Item) => listLeadChannel(item)==='google' ? 'zalo' : 'messenger';
 const sourceNames:Record<string,string> = { zalo:'Lead Zalo OA/Google', messenger:'Lead Messenger/Facebook Ads' };
 
-export default function ListLeadPanel() {
+export default function ListLeadPanel({canEdit=false}:{canEdit?:boolean}) {
   const [data,setData] = useState<Payload|null>(null);
   const [error,setError] = useState('');
   const [refreshing,setRefreshing] = useState(false);
@@ -21,7 +21,26 @@ export default function ListLeadPanel() {
   const [source,setSource] = useState('all');
   const [query,setQuery] = useState('');
   const [page,setPage] = useState(1);
+  const [uploading,setUploading] = useState(false);
+  const [notice,setNotice] = useState('');
+  const inputRef=useRef<HTMLInputElement>(null);
+  const busy=useRef(false);
+  async function importFile(file:File) {
+    if(busy.current)return;
+    if(!file.name.toLowerCase().endsWith('.xlsx')||file.size>4_000_000){setError('Chọn file .xlsx nhỏ hơn 4 MB.');return;}
+    busy.current=true;setUploading(true);setError('');setNotice('');
+    try {
+      const form=new FormData();form.set('file',file);
+      const response=await fetch('/api/list-lead',{method:'POST',body:form});
+      const result=await response.json() as Payload;
+      if(!response.ok)throw new Error(result.error||'Không cập nhật được file.');
+      setData(result);setPage(1);setNotice(`Đã lưu ${result.items.length.toLocaleString('vi-VN')} lead từ file mới.`);
+    } catch(e){setError(e instanceof Error?e.message:'Không cập nhật được file.');}
+    finally{busy.current=false;setUploading(false);if(inputRef.current)inputRef.current.value='';}
+  }
   async function refresh() {
+    if(busy.current)return;
+    busy.current=true;
     setRefreshing(true);
     try {
       const response=await fetch('/api/list-lead',{cache:'no-store'});
@@ -29,7 +48,7 @@ export default function ListLeadPanel() {
       if (!response.ok) throw new Error(result.error || 'Không tải được List Lead.');
       setData(result);setError('');
     } catch (e) {setError(e instanceof Error?e.message:'Không tải được List Lead.');}
-    finally {setRefreshing(false);}
+    finally {busy.current=false;setRefreshing(false);}
   }
   useEffect(()=>{
     void refresh();
@@ -74,14 +93,15 @@ export default function ListLeadPanel() {
   }
 
   return <>
-    <div className="page-heading"><div><p className="eyebrow">KHÔNG GIAN LÀM VIỆC / DỮ LIỆU SHEET</p><h1>List Lead</h1><p>Danh sách lead từ sheet “LEAD LIST”, bắt đầu từ 01/07/2026.</p></div></div>
+    <div className="page-heading"><div><p className="eyebrow">KHÔNG GIAN LÀM VIỆC / DỮ LIỆU SHEET</p><h1>List Lead</h1><p>Danh sách lead từ sheet “LEAD LIST”, bắt đầu từ 01/07/2026.</p></div>{canEdit&&<div><input ref={inputRef} type="file" accept=".xlsx" hidden aria-label="Chọn file cập nhật List Lead" onChange={e=>{const file=e.target.files?.[0];if(file)void importFile(file)}}/><button className="button primary" disabled={uploading||refreshing} onClick={()=>inputRef.current?.click()}><Upload size={16}/>{uploading?'Đang lưu…':'Cập nhật từ Excel'}</button><p className="data-note">File .xlsx dưới 4 MB. File mới thay thế toàn bộ List Lead.</p></div>}</div>
     {error&&<div className="alert error" role="alert">{error}</div>}
+    {notice&&<div className="alert success" role="status">{notice}</div>}
     {!data&&!error&&<div className="loading-state">Đang tải List Lead…</div>}
     {data&&<>
       <div className="list-lead-period" role="group" aria-label="Lọc theo tháng">
         {[['all','Từ tháng 7'],...months.map(key=>[key,monthLabel(key)])].map(([key,label])=><button key={key} className={month===key?'selected':''} onClick={()=>changeFilters(()=>setMonth(key))}>{label}</button>)}
       </div>
-      <div className={data.live?'data-note':'alert error'} role={data.live?undefined:'alert'}>{data.live&&data.lastSyncedAt?`Đã đồng bộ file nguồn lúc ${new Date(data.lastSyncedAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}. Tự kiểm tra mỗi phút khi trang đang mở.`:data.warning} <button className="button outline" type="button" onClick={()=>void refresh()} disabled={refreshing}><RefreshCw size={15} className={refreshing?'spin':''}/>{refreshing?'Đang cập nhật…':'Cập nhật ngay'}</button></div>
+      <div className={data.live||data.manual?'data-note':'alert error'} role={data.live||data.manual?undefined:'alert'}>{data.manual?`Đã cập nhật từ ${data.fileName||'Excel'}${data.lastSyncedAt?` lúc ${new Date(data.lastSyncedAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}`:''}. Tải Excel mới lên khi file nguồn thay đổi.`:data.live&&data.lastSyncedAt?`Đã đồng bộ file nguồn lúc ${new Date(data.lastSyncedAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}. Tự kiểm tra mỗi phút khi trang đang mở.`:data.warning} <button className="button outline" type="button" onClick={()=>void refresh()} disabled={refreshing||uploading}><RefreshCw size={15} className={refreshing?'spin':''}/>{refreshing?'Đang tải…':data.manual?'Tải lại dữ liệu':'Cập nhật ngay'}</button></div>
       <div className="list-lead-stats">
         <div className="list-lead-stat"><span className="list-lead-icon"><Users size={19}/></span><span>Tổng lead</span><strong>{total.toLocaleString('vi-VN')}</strong><small>Trong bộ lọc đang chọn</small></div>
         <div className="list-lead-stat"><span className="list-lead-icon green"><Users size={19}/></span><span>Đã ghi liên hệ</span><strong>{contacted.toLocaleString('vi-VN')}</strong><small>{total?Math.round(contacted/total*100):0}% tổng lead</small></div>

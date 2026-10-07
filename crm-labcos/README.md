@@ -21,4 +21,6 @@ The private store has the July–August 2026 Google Ads reports, their overview,
 
 ## Development
 
+Owners can use **List Lead → Cập nhật từ Excel** to upload an `.xlsx` workbook under 4 MB. The `LEAD LIST` / `LIST LEAD` tab is parsed from July 2026 onward, and the complete lead list is replaced only after validation succeeds. Uploaded data and its update time are saved in private Blob storage. Manual upload mode reads this saved dataset rather than overwriting it with the Google download on the next poll. Viewers cannot upload. Invalid or empty workbooks leave existing data intact.
+
 From this directory, run `pnpm install --ignore-workspace` and `pnpm build`. The Vercel project uses the same isolated install command. Never commit `.env` files or downloaded reports.
