@@ -9,6 +9,6 @@ export async function writePrivate<T>(path:string,value:T):Promise<void> {
   const existing=await get(path,{access:'private',useCache:false});
   await put(path,JSON.stringify(value),{
     access:'private',addRandomSuffix:false,contentType:'application/json',
-    ...(existing?.statusCode===200?{ifMatch:existing.blob.etag}:{}),
+    ...(existing?.statusCode===200?{allowOverwrite:true,ifMatch:existing.blob.etag.replace(/^W\//,'')}:{}),
   });
 }
