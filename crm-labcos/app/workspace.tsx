@@ -9,15 +9,16 @@ import SalePerformancePanel from './sale-performance-panel';
 import SaleLeadReportPanel from './sale-lead-report-panel';
 import MarketingOverviewPanel from './marketing-overview-panel';
 import UserAccessPanel from './user-access-panel';
+import DesignerPanel from './designer-panel';
 
-type Tab = 'overview' | 'marketing' | 'leads' | 'list-lead' | 'sale-performance' | 'sale-lead-report' | 'content' | 'kpis' | 'meta' | 'google' | 'users';
+type Tab = 'overview' | 'marketing' | 'leads' | 'list-lead' | 'sale-performance' | 'sale-lead-report' | 'content' | 'kpis' | 'meta' | 'google' | 'users' | 'designer';
 type Lead = { id:string; name:string; company:string; phone:string; source:string; status:string; value:number; next_action:string; note:string; created_at:string; updated_at:string };
 type Content = { id:string; title:string; channel:string; status:string; publish_date:string; brief:string; created_at:string; updated_at:string };
 type LeadForm = { name:string; company:string; phone:string; source:string; status:string; value:string; nextAction:string; note:string };
 type ContentForm = { title:string; channel:string; status:string; publishDate:string; brief:string };
 const stages = [ ['new','Mới'], ['contacted','Đã liên hệ'], ['interested','Quan tâm'], ['booked','Đã hẹn'], ['won','Chốt đơn'], ['lost','Không phù hợp'] ] as const;
 const contentStages = [ ['draft','Bản nháp'], ['review','Chờ duyệt'], ['scheduled','Đã lên lịch'], ['published','Đã đăng'] ] as const;
-const tabs = [ { id:'overview', label:'Tổng quan', icon:LayoutDashboard }, { id:'marketing', label:'Marketing', icon:Megaphone }, { id:'leads', label:'Khách hàng & Lead', icon:Users }, { id:'sale-performance', label:'Sale Performance', icon:BarChart3 }, { id:'sale-lead-report', label:'Sale Lead Report', icon:Users }, { id:'kpis', label:'KPI', icon:BarChart3 }, { id:'users', label:'Người dùng', icon:Users } ] as const;
+const tabs = [ { id:'overview', label:'Tổng quan', icon:LayoutDashboard }, { id:'marketing', label:'Marketing', icon:Megaphone }, { id:'leads', label:'Khách hàng & Lead', icon:Users }, { id:'sale-performance', label:'Sale Performance', icon:BarChart3 }, { id:'sale-lead-report', label:'Sale Lead Report', icon:Users }, { id:'designer', label:'Designer', icon:Pencil }, { id:'kpis', label:'KPI', icon:BarChart3 }, { id:'users', label:'Người dùng', icon:Users } ] as const;
 const marketingTabs = [ { id:'marketing', label:'Overview', icon:LayoutDashboard }, { id:'meta', label:'Meta Ads', icon:Megaphone }, { id:'google', label:'Google Ads', icon:BarChart3 }, { id:'list-lead', label:'List Lead', icon:FileText }, { id:'content', label:'Nội dung', icon:FileText } ] as const;
 const emptyLead:LeadForm = { name:'', company:'', phone:'', source:'Facebook Ads', status:'new', value:'', nextAction:'', note:'' };
 const emptyContent:ContentForm = { title:'', channel:'Facebook', status:'draft', publishDate:'', brief:'' };
@@ -42,14 +43,14 @@ export default function Dashboard() {
   const [statusFilter,setStatusFilter] = useState('all');
   const [contentFilter,setContentFilter] = useState('all');
   const [menuOpen,setMenuOpen] = useState(false);
-  const [role,setRole] = useState<'owner'|'viewer'|null>(null);
+  const [role,setRole] = useState<'owner'|'viewer'|'designer'|null>(null);
   const canEdit = role === 'owner';
 
   const load = useCallback(async () => {
     try {
       setError('');
       const response = await fetch('/api/dashboard', { cache:'no-store' });
-      const data = await response.json() as { error?:string; leads?:Lead[]; content?:Content[]; role?:'owner'|'viewer' };
+      const data = await response.json() as { error?:string; leads?:Lead[]; content?:Content[]; role?:'owner'|'viewer'|'designer' };
       if (!response.ok) throw new Error(data.error || 'Không tải được dữ liệu.');
       setLeads(data.leads || []); setContent(data.content || []); setRole(data.role || null);
     } catch (e) { setError(e instanceof Error ? e.message : 'Không tải được dữ liệu.'); }
@@ -116,7 +117,7 @@ export default function Dashboard() {
     </aside>
     {menuOpen && <button className="menu-backdrop" aria-label="Đóng menu" onClick={()=>setMenuOpen(false)}/>}
     <div className="main-area">
-      <header className="topbar"><div className="top-left"><button className="menu-toggle" aria-label="Mở menu" onClick={()=>setMenuOpen(true)}><Menu size={21}/></button><span className="breadcrumb">LABCOS <ChevronRight size={14}/> {marketingTabs.some(child=>child.id===tab)?`Marketing / ${marketingTabs.find(child=>child.id===tab)?.label}`:tabs.find(x=>x.id===tab)?.label}</span></div><div className="top-actions"><span className="updated">{role==='viewer'?'Quyền chỉ xem':role==='owner'?'Quản trị':'Dữ liệu trực tiếp'}</span><button className="icon-button" title="Tải lại dữ liệu" aria-label="Tải lại dữ liệu" onClick={()=>{setLoading(true);void load();}}><RefreshCw size={17}/></button><button className="button outline" onClick={async()=>{await fetch('/api/auth/logout',{method:'POST'});window.location.assign('/login')}}>Đăng xuất</button><div className="avatar" title="Workspace riêng tư">L</div></div></header>
+      <header className="topbar"><div className="top-left"><button className="menu-toggle" aria-label="Mở menu" onClick={()=>setMenuOpen(true)}><Menu size={21}/></button><span className="breadcrumb">LABCOS <ChevronRight size={14}/> {marketingTabs.some(child=>child.id===tab)?`Marketing / ${marketingTabs.find(child=>child.id===tab)?.label}`:tabs.find(x=>x.id===tab)?.label}</span></div><div className="top-actions"><span className="updated">{role==='designer'?'Designer':role==='viewer'?'Quyền chỉ xem':role==='owner'?'Quản trị':'Dữ liệu trực tiếp'}</span><button className="icon-button" title="Tải lại dữ liệu" aria-label="Tải lại dữ liệu" onClick={()=>{setLoading(true);void load();}}><RefreshCw size={17}/></button><button className="button outline" onClick={async()=>{await fetch('/api/auth/logout',{method:'POST'});window.location.assign('/login')}}>Đăng xuất</button><div className="avatar" title="Workspace riêng tư">L</div></div></header>
       <main className={`page-content ${tab==='google'?'google-page-content':''}`}>
         {error && <div className="alert error" role="alert">{error}<button onClick={()=>setError('')} aria-label="Đóng"><X size={16}/></button></div>}
         {notice && <div className="alert success" role="status"><Check size={16}/>{notice}</div>}
@@ -133,6 +134,7 @@ export default function Dashboard() {
           {tab==='meta'&&<MetaPanel canEdit={canEdit}/>}
           {tab==='marketing'&&<MarketingOverviewPanel onNavigate={navigate} contentCount={content.length}/>}
           {tab==='google'&&<GoogleAdsPanel/>}
+          {tab==='designer'&&<DesignerPanel/>}
           {tab==='list-lead'&&<ListLeadPanel canEdit={canEdit}/>}
           {tab==='sale-performance'&&<SalePerformancePanel/>}
           {tab==='sale-lead-report'&&<SaleLeadReportPanel/>}

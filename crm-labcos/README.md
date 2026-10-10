@@ -21,6 +21,12 @@ The private store has the July–August 2026 Google Ads reports, their overview,
 
 ## Development
 
+## Designer workspace
+
+The **Designer** tab displays tasks imported from the supplied `BRIEF DESIGN` sheet. The private dataset `labcos/designer.json` includes the level definitions and task defaults extracted from `KPI CONFIG 2026`. Workload points are derived from the dashboard override, then the workbook level, then the configured task-type default. Unknown mappings remain unscored. Periods follow source month headings; groups without a heading are marked unknown, and source dates are preserved.
+
+Owners can grant existing or new users the **Designer** role under **Người dùng**. Designers may select/reset Complexity Level; other CRM writes remain owner-only. Role revocation and changes are checked against private user storage on every authenticated request. Level updates use conditional Blob writes and record timestamps to reject stale edits. Designer edits persist in dashboard storage; the original workbook is a source snapshot.
+
 Owners can use **List Lead → Cập nhật từ Excel** to upload an `.xlsx` workbook under 4 MB. The `LEAD LIST` / `LIST LEAD` tab is parsed from July 2026 onward, and the complete lead list is replaced only after validation succeeds. Uploaded data and its update time are saved in private Blob storage. Manual upload mode reads this saved dataset rather than overwriting it with the Google download on the next poll. Viewers cannot upload. Invalid or empty workbooks leave existing data intact.
 
 From this directory, run `pnpm install --ignore-workspace` and `pnpm build`. The Vercel project uses the same isolated install command. Never commit `.env` files or downloaded reports.

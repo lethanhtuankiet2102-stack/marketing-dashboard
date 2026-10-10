@@ -4,7 +4,7 @@ import { readPrivate } from '../../../../lib/private-store';
 
 export const runtime='nodejs';
 const noStore={'Cache-Control':'private, no-store'};
-type Viewer={email:string;passwordHash:string;displayName:string};
+type Viewer={email:string;passwordHash:string;displayName:string;role?:'viewer'|'designer'};
 function check(password:string,stored:string) {
   const [salt,hash]=stored.split(':');
   if (!salt||!hash||!/^[0-9a-f]{64}$/.test(hash)) return false;
@@ -22,10 +22,11 @@ export async function POST(request:Request) {
   } else {
     const viewers=await readPrivate<Viewer[]>('labcos/viewers.json',[]);
     const viewer=viewers.find(item=>item.email===username);
-    if (viewer&&check(password,viewer.passwordHash)) user={userId:viewer.email,email:viewer.email,displayName:viewer.displayName||viewer.email,fullName:null,role:'viewer'};
+    if (viewer&&check(password,viewer.passwordHash)) user={userId:viewer.email,email:viewer.email,displayName:viewer.displayName||viewer.email,fullName:null,role:viewer.role==='designer'?'designer':'viewer'};
   }
   if (!user) return Response.json({error:'Tài khoản hoặc mật khẩu không đúng.'},{status:401,headers:noStore});
   const response=Response.json({ok:true,returnTo:safePath(input.returnTo||'/')},{headers:noStore});
   response.headers.append('Set-Cookie',`${sessionCookie}=${createSession(user)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
   return response;
 }
+

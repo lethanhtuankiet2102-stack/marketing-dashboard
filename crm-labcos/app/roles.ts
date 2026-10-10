@@ -1,6 +1,6 @@
 import { getChatGPTUser } from './chatgpt-auth';
 
-export async function dashboardRole(): Promise<'owner' | 'viewer' | null> {
+export async function dashboardRole(): Promise<'owner' | 'viewer' | 'designer' | null> {
   const user = await getChatGPTUser();
   return user?.role ?? null;
 }
@@ -13,3 +13,4 @@ export async function requireOwnerWrite(): Promise<Response | null> {
     headers: { 'Cache-Control': 'private, no-store' },
   });
 }
+

@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { readPrivate } from '../lib/private-store';
 
-export type ChatGPTUser = { userId:string; displayName:string; email:string; fullName:string|null; role:'owner'|'viewer' };
+export type ChatGPTUser = { userId:string; displayName:string; email:string; fullName:string|null; role:'owner'|'viewer'|'designer' };
 const cookieName='labcos-session';
 
 function secret() {
@@ -25,16 +25,18 @@ export function verifySession(token:string|undefined):ChatGPTUser|null {
     const actual=Buffer.from(signature);
     if (actual.length!==expected.length||!timingSafeEqual(actual,expected)) return null;
     const parsed=JSON.parse(Buffer.from(payload,'base64url').toString('utf8')) as {user:ChatGPTUser;expires:number};
-    if (parsed.expires<Date.now()||!['owner','viewer'].includes(parsed.user?.role)||!parsed.user.email) return null;
+    if (parsed.expires<Date.now()||!['owner','viewer','designer'].includes(parsed.user?.role)||!parsed.user.email) return null;
     return parsed.user;
   } catch { return null; }
 }
 export async function getChatGPTUser() {
   const user=verifySession((await cookies()).get(cookieName)?.value);
-  if(user?.role==='viewer') {
+  if(user&&user.role!=='owner') {
     try {
-      const viewers=await readPrivate<{email:string}[]>('labcos/viewers.json',[]);
-      if(!viewers.some(viewer=>viewer.email===user.email))return null;
+      const viewers=await readPrivate<{email:string;role?:'viewer'|'designer'}[]>('labcos/viewers.json',[]);
+      const account=viewers.find(viewer=>viewer.email===user.email);
+      if(!account)return null;
+      user.role=account.role==='designer'?'designer':'viewer';
     } catch {return null}
   }
   return user;
@@ -48,3 +50,4 @@ export function chatGPTSignInPath(returnTo:string) { return `/login?return_to=${
 export function chatGPTSignOutPath() { return '/api/auth/logout'; }
 export function safePath(path:string) { return path.startsWith('/')&&!path.startsWith('//')&&!path.startsWith('/api/')?path:'/'; }
 export const sessionCookie=cookieName;
+
