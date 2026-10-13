@@ -33,6 +33,6 @@ From this directory, run `pnpm install --ignore-workspace` and `pnpm build`. The
 
 ### Designer performance
 
-Designer navigation contains Danh sách task and Hiệu suất. Task records optionally store `designer` (name) and `taskSource` (`planned`, `ad-hoc`, or null). Existing records remain unassigned until updated. Owner and Designer accounts can edit these fields with the same optimistic concurrency guard as complexity levels.
+Designer navigation contains Danh sách task and Hiệu suất. Task source is inferred from the existing platform column: values containing PHÁT SINH (case/accent/whitespace insensitive) are emergent; other nonempty values are planned; empty values remain unknown. There are no manual Designer or task-source columns. Any legacy assignment/source fields are ignored. Only complexity levels are editable.
 
-Performance uses the same private task dataset and KPI level mapping. Completion = DONE task count / filtered task count; advanced workload = L3–L5 points / all scored points. Average points = scored points / all filtered tasks, with an explicit notice for unscored tasks. Monthly trends use the selected month plus the two preceding calendar months and apply the Designer, classification and source filters. Unknown months are excluded from the calendar trend.
+Performance uses the same private task dataset and KPI level mapping. Completion = DONE task count / filtered task count; advanced workload = L3–L5 points / all scored points. Average points = scored points / all filtered tasks, with an explicit notice for unscored tasks. Monthly trends use the selected month plus the two preceding calendar months and apply classification and inferred source filters. Unknown months are excluded from the calendar trend.

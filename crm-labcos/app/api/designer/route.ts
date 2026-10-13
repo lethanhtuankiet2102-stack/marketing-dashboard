@@ -20,20 +20,17 @@ export async function PATCH(request:Request){
   if(!user)return Response.json({error:'Cần đăng nhập.'},{status:401,headers});
   if(!['owner','designer'].includes(user.role))return Response.json({error:'Tài khoản chỉ có quyền xem.'},{status:403,headers});
   if(request.headers.get('origin')!==new URL(request.url).origin)return Response.json({error:'Yêu cầu không hợp lệ.'},{status:403,headers});
-  let input:{id?:string;level?:string|null;designer?:string|null;taskSource?:string|null;expectedUpdatedAt?:string|null};
+  let input:{id?:string;level?:string|null;expectedUpdatedAt?:string|null};
   try{input=await request.json()}catch{return Response.json({error:'Yêu cầu không hợp lệ.'},{status:400,headers});}
   if(!input||typeof input!=='object'||typeof input.id!=='string'||!Object.hasOwn(input,'expectedUpdatedAt')||!(input.expectedUpdatedAt===null||typeof input.expectedUpdatedAt==='string'))return Response.json({error:'Yêu cầu không hợp lệ.'},{status:400,headers});
-  const hasLevel=Object.hasOwn(input,'level'),hasDesigner=Object.hasOwn(input,'designer'),hasSource=Object.hasOwn(input,'taskSource');
-  if(!(hasLevel||hasDesigner||hasSource)||(hasLevel&&!(input.level===null||typeof input.level==='string'&&/^L[1-5]$/.test(input.level)))||(hasDesigner&&!(input.designer===null||typeof input.designer==='string'&&input.designer.trim().length<=100))||(hasSource&&!(input.taskSource===null||['planned','ad-hoc'].includes(input.taskSource||''))))return Response.json({error:'Thông tin task không hợp lệ.'},{status:400,headers});
+  if(!(input.level===null||typeof input.level==='string'&&/^L[1-5]$/.test(input.level)))return Response.json({error:'Chọn level L1–L5 hợp lệ.'},{status:400,headers});
   try{
     const data=await updatePrivate<DesignData>(path,current=>{
       const task=current.items.find(item=>item.id===input.id);
       if(!task)throw new Error('NOT_FOUND');
       if(task.updatedAt!==input.expectedUpdatedAt)throw new Error('CONFLICT');
       if(input.level&&!current.levels.some(level=>level.id===input.level))throw new Error('INVALID_LEVEL');
-      if(hasLevel)task.levelOverride=input.level??null;
-      if(hasDesigner)task.designer=input.designer?.trim()||'';
-      if(hasSource)task.taskSource=(input.taskSource??null) as 'planned'|'ad-hoc'|null;
+      task.levelOverride=input.level??null;
       task.updatedAt=new Date().toISOString();
       return current;
     });
