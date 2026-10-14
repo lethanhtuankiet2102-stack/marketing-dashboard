@@ -1,4 +1,5 @@
 'use client';
+import GoogleSyncStatus from './google-sync-status';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Download, RefreshCw, Search, Users } from 'lucide-react';
@@ -77,7 +78,7 @@ export default function ListLeadPanel(_props:{canEdit?:boolean}) {
   }
 
   return <>
-    <div className="page-heading"><div><p className="eyebrow">KHÔNG GIAN LÀM VIỆC / DỮ LIỆU SHEET</p><h1>List Lead</h1><p>Danh sách lead từ sheet “LEAD LIST”, bắt đầu từ 01/07/2026.</p></div></div>
+    <GoogleSyncStatus/><div className="page-heading"><div><p className="eyebrow">KHÔNG GIAN LÀM VIỆC / DỮ LIỆU SHEET</p><h1>List Lead</h1><p>Danh sách lead từ sheet “LEAD LIST”, bắt đầu từ 01/07/2026.</p></div></div>
     {error&&<div className="alert error" role="alert">{error}</div>}
     {!data&&!error&&<div className="loading-state">Đang tải List Lead…</div>}
     {data&&<>

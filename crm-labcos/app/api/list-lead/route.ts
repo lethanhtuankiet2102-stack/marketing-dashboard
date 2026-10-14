@@ -1,3 +1,4 @@
+import {leadWorkbook,syncWarning} from '../../../lib/google-source';
 import { getChatGPTUser } from '../../chatgpt-auth';
 import { parseLeadWorkbook } from './workbook';
 import { readPrivate, writePrivate } from '../../../lib/private-store';
@@ -10,50 +11,22 @@ type Stored = ReturnType<typeof parseLeadWorkbook> & { mode?:'upload'; lastSynce
 const cachePath='labcos/list-leads.json';
 const headers={'Cache-Control':'private, no-store'};
 
-const fileId=process.env.LIST_LEAD_SHEET_ID||'';
-const sourceUrls=[
-  `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`,
-  `https://docs.google.com/spreadsheets/d/${fileId}/export?format=xlsx`,
-  `https://drive.google.com/uc?export=download&id=${fileId}`,
-];
-
-async function downloadWorkbook() {
-  const failures:string[]=[];
-  for (const url of sourceUrls) {
-    try {
-      const response=await fetch(url,{cache:'no-store',redirect:'follow',signal:AbortSignal.timeout(12000)});
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const buffer=await response.arrayBuffer();
-      const bytes=new Uint8Array(buffer);
-      if (buffer.byteLength>20_000_000 || bytes[0]!==0x50 || bytes[1]!==0x4b) throw new Error('Google trả về trang web thay vì Excel');
-      return buffer;
-    } catch (error) {failures.push(`${new URL(url).hostname}: ${error instanceof Error?error.message:String(error)}`);}
-  }
-  throw new Error(failures.join('; '));
-}
 
 export async function GET() {
   if (!await getChatGPTUser()) {
     return Response.json({ error: 'Cần đăng nhập để xem List Lead.' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
   }
   const saved=await readPrivate<Stored|null>(cachePath,null).catch(()=>null);
-  if(saved?.mode==='upload') return Response.json({...saved,live:false,manual:true,warning:null},{headers});
-  if (!fileId) return saved?Response.json({...saved,live:false,warning:'Chưa kết nối file Google. Quản trị viên có thể tải Excel mới lên.'},{headers}):Response.json({error:'Chưa kết nối file Google. Hãy tải Excel lên để cập nhật List Lead.'},{status:503,headers});
+  if(saved?.mode!=='upload'&&saved?.lastSyncedAt&&Date.now()-Date.parse(saved.lastSyncedAt)<60000)return Response.json({...saved,live:true,manual:false,warning:null},{headers});
   try {
-    const buffer=await downloadWorkbook();
-    const records=parseLeadWorkbook(buffer);
-    try {
-      const previous=await readPrivate<typeof records|null>('labcos/list-leads.json',null);
-      if (JSON.stringify(previous)!==JSON.stringify(records)) await writePrivate('labcos/list-leads.json',records);
-    } catch (error) { console.error('List Lead cache write failed',error); }
-    return Response.json({...records,live:true,lastSyncedAt:new Date().toISOString()}, {headers:{'Cache-Control':'private, no-store'}});
-  } catch (error) {
-    console.error('List Lead source refresh failed:',error);
-    try {
-      const records=await readPrivate<ReturnType<typeof parseLeadWorkbook>|null>('labcos/list-leads.json',null);
-      if(records)return Response.json({...records,live:false,lastSyncedAt:null,warning:'Chưa kết nối được file nguồn. Đang hiển thị bản lưu trước đó; dữ liệu có thể chưa mới.'},{headers:{'Cache-Control':'private, no-store'}});
-    } catch (cacheError) { console.error('List Lead cache read failed',cacheError); }
-    return Response.json({error:'Chưa kết nối được List Lead và chưa có bản lưu trên Vercel.'},{status:503,headers:{'Cache-Control':'private, no-store'}});
+    const records=parseLeadWorkbook(await leadWorkbook());
+    if(!records.items.length)throw new Error('SOURCE_EMPTY');
+    const next={...records,lastSyncedAt:new Date().toISOString(),fileName:'LABCOS _ LỊCH TRỰC PAGE (Google Drive)'};
+    await writePrivate(cachePath,next);
+    return Response.json({...next,live:true,manual:false,warning:null},{headers});
+  } catch(error) {
+    if(saved)return Response.json({...saved,live:false,manual:false,warning:syncWarning(error)},{headers});
+    return Response.json({error:syncWarning(error)},{status:503,headers});
   }
 }
 

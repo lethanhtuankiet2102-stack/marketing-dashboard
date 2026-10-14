@@ -31,6 +31,7 @@ const contentLabel = (s:string) => contentStages.find(x=>x[0]===s)?.[1] || s;
 
 export default function Dashboard() {
   const [tab,setTab] = useState<Tab>('overview');
+  useEffect(()=>{if(new URLSearchParams(window.location.search).has('google_sync'))setTab('designer-performance')},[]);
   const [leads,setLeads] = useState<Lead[]>([]);
   const [content,setContent] = useState<Content[]>([]);
   const [loading,setLoading] = useState(true);

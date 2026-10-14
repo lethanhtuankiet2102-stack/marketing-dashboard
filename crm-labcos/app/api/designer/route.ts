@@ -1,3 +1,5 @@
+import {refreshDesigner} from '../../../lib/designer-sync';
+import {syncWarning} from '../../../lib/google-source';
 import { getChatGPTUser } from '../../chatgpt-auth';
 import { readPrivate, updatePrivate } from '../../../lib/private-store';
 import { workloadPoints, effectiveLevel, type DesignData } from '../../designer-model';
@@ -10,9 +12,11 @@ export async function GET(){
   const user=await getChatGPTUser();
   if(!user)return Response.json({error:'Cần đăng nhập.'},{status:401,headers});
   try{
-    const data=await readPrivate<DesignData|null>(path,null);
+    let data:DesignData|null=null,warning:string|null=null,live=false;
+    try{data=await refreshDesigner();live=true}catch(error){warning=syncWarning(error);data=await readPrivate<DesignData|null>(path,null);}
+
     if(!data)return Response.json({error:'Chưa có dữ liệu ORDER DESIGN.'},{status:503,headers});
-    return Response.json(payload(data,user.role),{headers});
+    return Response.json({...payload(data,user.role),live,warning},{headers});
   }catch{return Response.json({error:'Không tải được dữ liệu Designer. Hãy thử lại.'},{status:503,headers});}
 }
 export async function PATCH(request:Request){

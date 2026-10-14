@@ -1,5 +1,6 @@
 'use client';
-import {useEffect,useMemo,useState} from 'react';
+import GoogleSyncStatus from './google-sync-status';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {ChevronLeft,ChevronRight,RefreshCw,Search} from 'lucide-react';
 import {effectiveLevel,workloadPoints,type DesignData,type DesignTask} from './designer-model';
 type Payload=DesignData&{canEdit:boolean};
@@ -10,11 +11,12 @@ const safeUrl=(s:string)=>/^https?:\/\//i.test(s)?s:null;
 export default function DesignerPanel(){
   const [data,setData]=useState<Payload|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState(''),[saving,setSaving]=useState<string|null>(null),[loading,setLoading]=useState(false);
   const [period,setPeriod]=useState(''),[query,setQuery]=useState(''),[status,setStatus]=useState('all'),[type,setType]=useState('all'),[page,setPage]=useState(1);
-  async function load(){setLoading(true);try{const response=await fetch('/api/designer',{cache:'no-store'});const result=await response.json();if(!response.ok)throw new Error(result.error||'Không tải được dữ liệu.');setData(result);setPeriod(current=>current||sortPeriods([...new Set<string>(result.items.map((x:DesignTask)=>x.period))])[0]||'all');setError('');}catch(e){setError(e instanceof Error?e.message:'Không tải được dữ liệu.');}finally{setLoading(false);}}
-  useEffect(()=>{void load()},[]);
+  const busy=useRef(false),editing=useRef(false);editing.current=!!saving;
+  async function load(){if(busy.current||editing.current)return;busy.current=true;setLoading(true);try{const response=await fetch('/api/designer',{cache:'no-store'});const result=await response.json();if(!response.ok)throw new Error(result.error||'Không tải được dữ liệu.');setData(result);setPeriod(current=>current||sortPeriods([...new Set<string>(result.items.map((x:DesignTask)=>x.period))])[0]||'all');setError('');}catch(e){setError(e instanceof Error?e.message:'Không tải được dữ liệu.');}finally{busy.current=false;setLoading(false);}}
+  useEffect(()=>{void load();const timer=window.setInterval(()=>{if(!document.hidden)void load()},60000);const focus=()=>void load();window.addEventListener('focus',focus);return()=>{window.clearInterval(timer);window.removeEventListener('focus',focus)}},[]);
   async function changeTask(item:DesignTask,changes:{level:string|null}){
     setSaving(item.id);setError('');setNotice('');
-    try{const response=await fetch('/api/designer',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:item.id,...changes,expectedUpdatedAt:item.updatedAt})});const result=await response.json();if(!response.ok){if(response.status===409)await load();throw new Error(result.error||'Không lưu được level.');}setData(result);setNotice(`Đã lưu task #${item.sheetRow}. Hiệu suất đã cập nhật.`);}catch(e){setError(e instanceof Error?e.message:'Không lưu được level.');}finally{setSaving(null);}
+    try{const response=await fetch('/api/designer',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:item.id,...changes,expectedUpdatedAt:item.updatedAt})});const result=await response.json();if(!response.ok){if(response.status===409){editing.current=false;await load();}throw new Error(result.error||'Không lưu được level.');}setData(result);setNotice(`Đã lưu task #${item.sheetRow}. Hiệu suất đã cập nhật.`);}catch(e){setError(e instanceof Error?e.message:'Không lưu được level.');}finally{setSaving(null);}
   }
   const rows=useMemo(()=>data?.items.filter(item=>(period==='all'||item.period===period)&&(status==='all'||(status==='done'?item.status.toUpperCase()==='DONE':item.status.toUpperCase()!=='DONE'))&&(type==='all'||item.taskType===type)&&(!query||normalized([item.name,item.platform,item.briefBy,item.note,item.taskType].join(' ')).includes(normalized(query))))||[],[data,period,status,type,query]);
   const periods=sortPeriods([...new Set(data?.items.map(x=>x.period)||[])]);
@@ -26,10 +28,11 @@ export default function DesignerPanel(){
   const pages=Math.max(1,Math.ceil(rows.length/25)),currentPage=Math.min(page,pages),visible=rows.slice((currentPage-1)*25,currentPage*25);
   const filter=(fn:()=>void)=>{fn();setPage(1)};
   return <div className="designer-workspace designer-task-page">
-    <div className="page-heading"><div><p className="eyebrow">KHÔNG GIAN LÀM VIỆC / DESIGNER</p><h1>Danh sách task Designer</h1><p>Task thiết kế từ BRIEF DESIGN · điểm theo KPI CONFIG 2026.</p></div><button className="button outline" disabled={loading||!!saving} onClick={()=>void load()}><RefreshCw size={16}/>{loading?'Đang tải…':'Tải lại'}</button></div>
+    <GoogleSyncStatus/><div className="page-heading"><div><p className="eyebrow">KHÔNG GIAN LÀM VIỆC / DESIGNER</p><h1>Danh sách task Designer</h1><p>Task thiết kế từ BRIEF DESIGN · điểm theo KPI CONFIG 2026.</p></div><button className="button outline" disabled={loading||!!saving} onClick={()=>void load()}><RefreshCw size={16}/>{loading?'Đang tải…':'Tải lại'}</button></div>
     {error&&<div role="alert" className="alert error">{error}</div>}{notice&&<div role="status" className="alert success">{notice}</div>}
     {!data&&!error&&<div className="loading-state">Đang tải task Designer…</div>}
     {data&&<>
+      <p className={data.live?'data-note':'alert error'} role={data.live?undefined:'alert'}>{data.live?`Đã đồng bộ Google${data.lastSyncedAt?` lúc ${new Date(data.lastSyncedAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}`:''}. Tự kiểm tra mỗi phút khi trang đang mở.`:data.warning||'Đang hiển thị bản lưu.'}</p>
       <div className="tools-row designer-filters"><label className="search-box"><Search size={17}/><input aria-label="Tìm task Designer" placeholder="Tìm task, người brief…" value={query} onChange={e=>filter(()=>setQuery(e.target.value))}/></label><select aria-label="Lọc tháng Designer" value={period} onChange={e=>filter(()=>setPeriod(e.target.value))}><option value="all">Tất cả tháng</option>{periods.map(p=><option key={p} value={p}>{periodLabel(p)}</option>)}</select><select aria-label="Lọc loại task" value={type} onChange={e=>filter(()=>setType(e.target.value))}><option value="all">Tất cả loại task</option>{types.map(t=><option key={t} value={t}>{t||'Chưa phân loại'}</option>)}</select><select aria-label="Lọc tiến độ Designer" value={status} onChange={e=>filter(()=>setStatus(e.target.value))}><option value="all">Tất cả tiến độ</option><option value="done">Hoàn thành</option><option value="open">Chưa hoàn thành</option></select></div>
       <div className="list-lead-stats designer-stats"><div className="list-lead-stat"><span>Tổng task</span><strong>{rows.length}</strong><small>{periodLabel(period)}</small></div><div className="list-lead-stat"><span>Workload Point</span><strong>{totalPoints}</strong><small>Tổng điểm trong bộ lọc</small></div><div className="list-lead-stat"><span>Điểm hoàn thành</span><strong>{donePoints}</strong><small>{done.length} task DONE</small></div><div className="list-lead-stat"><span>Điểm còn lại</span><strong>{totalPoints-donePoints}</strong><small>{rows.length-done.length} task chưa DONE</small></div></div>
       {unscored>0&&<p className="data-note">{unscored} task chưa có level hoặc phân loại phù hợp; chưa cộng vào tổng điểm.</p>}

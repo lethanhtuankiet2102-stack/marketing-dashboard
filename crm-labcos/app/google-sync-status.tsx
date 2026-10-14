@@ -1,0 +1,10 @@
+'use client';
+import {useEffect,useState} from 'react';
+type Status={connected:boolean;canConnect:boolean;configured:boolean;callback?:string};
+export default function GoogleSyncStatus(){
+ const [status,setStatus]=useState<Status|null>(null);
+ useEffect(()=>{let active=true;fetch('/api/google-sync',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(value=>{if(active)setStatus(value)}).catch(()=>undefined);return()=>{active=false}},[]);
+ if(!status?.canConnect)return null;
+ const result=typeof window!=='undefined'?new URLSearchParams(window.location.search).get('google_sync'):null;
+ return <section className="google-sync-card" aria-label="Kết nối dữ liệu Google"><div><strong>{status.connected?'Đã kết nối Google':'Kết nối Google để tự cập nhật CRM'}</strong><p>{status.connected?'Designer và List Lead tự kiểm tra dữ liệu mỗi phút khi trang đang mở.':'Cấp quyền đọc bằng tài khoản có quyền xem cả ORDER DESIGN và LỊCH TRỰC PAGE. CRM chỉ đọc dữ liệu nguồn.'}</p>{result&&result!=='connected'&&<p role="alert">{result==='denied'?'Ông chưa cấp quyền đọc Google. Có thể kết nối lại.':'Chưa hoàn tất kết nối. Kiểm tra cấu hình Google bên dưới rồi thử lại.'}</p>}</div><form action="/api/google-sync/connect" method="post"><button className="button outline" disabled={!status.configured}>{status.connected?'Kết nối lại Google':'Kết nối Google'}</button></form>{!status.connected&&<details><summary>Cấu hình Google cho quản trị viên</summary><p>Trong Google Cloud, bật Google Drive API và Google Sheets API. Với OAuth Client loại Web application, thêm Authorized redirect URI:</p><code>{status.callback}</code><p>{status.configured?'Vercel đã có tên biến GOOGLE_CLIENT_ID và GOOGLE_CLIENT_SECRET; cần bảo đảm giá trị đúng với OAuth Client đó.':'Cấu hình GOOGLE_CLIENT_ID và GOOGLE_CLIENT_SECRET trực tiếp trong Environment Variables của Vercel, rồi triển khai lại.'} Nếu ứng dụng Google đang ở Testing, thêm tài khoản kết nối vào Test users; quyền kết nối có thể hết hạn sau 7 ngày.</p></details>}</section>;
+}

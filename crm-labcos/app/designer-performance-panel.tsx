@@ -1,5 +1,6 @@
 'use client';
-import {useCallback,useEffect,useMemo,useState} from 'react';
+import GoogleSyncStatus from './google-sync-status';
+import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {BarChart3,CheckCircle2,ClipboardList,Layers,RefreshCw,Target,Zap} from 'lucide-react';
 import {designSummary,designTaskSource,effectiveLevel,type DesignData,type DesignTask} from './designer-model';
 const colors=['#3988ff','#fa609a','#37c48d','#ffb552','#a272ff'];
@@ -10,11 +11,12 @@ function Ring({value,color='#7664ff',label}:{value:number;color?:string;label:st
 export default function DesignerPerformancePanel(){
  const [data,setData]=useState<DesignData|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true);
  const [period,setPeriod]=useState(''),[type,setType]=useState('all'),[source,setSource]=useState('all'),[metric,setMetric]=useState<'tasks'|'points'>('tasks');
- const load=useCallback(async()=>{setLoading(true);try{const response=await fetch('/api/designer',{cache:'no-store'});const result=await response.json();if(!response.ok)throw new Error(result.error||'Không tải được hiệu suất.');setData(result);const known=[...new Set<string>(result.items.map((x:DesignTask)=>x.period))].filter(p=>/^\d{4}-\d{2}$/.test(p)).sort().reverse();setPeriod(current=>current||known[0]||'all');setError('');}catch(e){setError(e instanceof Error?e.message:'Không tải được hiệu suất.');}finally{setLoading(false);}},[]);
- useEffect(()=>{void load()},[load]);
+ const busy=useRef(false);
+ const load=useCallback(async()=>{if(busy.current)return;busy.current=true;setLoading(true);try{const response=await fetch('/api/designer',{cache:'no-store'});const result=await response.json();if(!response.ok)throw new Error(result.error||'Không tải được hiệu suất.');setData(result);const known=[...new Set<string>(result.items.map((x:DesignTask)=>x.period))].filter(p=>/^\d{4}-\d{2}$/.test(p)).sort().reverse();setPeriod(current=>current||known[0]||'all');setError('');}catch(e){setError(e instanceof Error?e.message:'Không tải được hiệu suất.');}finally{busy.current=false;setLoading(false);}},[]);
+ useEffect(()=>{void load();const timer=window.setInterval(()=>{if(!document.hidden)void load()},60000);const focus=()=>void load();window.addEventListener('focus',focus);return()=>{window.clearInterval(timer);window.removeEventListener('focus',focus)}},[load]);
  const base=useMemo(()=>data?.items.filter(x=>(type==='all'||x.taskType===type)&&(source==='all'||(designTaskSource(x)===source)))||[],[data,type,source]);
  const rows=useMemo(()=>base.filter(x=>period==='all'||x.period===period),[base,period]);
- if(!data)return <div className="designer-workspace designer-performance-page"><div className="page-heading"><h1>Hiệu suất Designer</h1><button className="button outline" disabled={loading} onClick={()=>void load()}><RefreshCw size={16}/>Tải lại</button></div>{error?<div role="alert" className="alert error">{error}</div>:<div className="loading-state">Đang tải hiệu suất Designer…</div>}</div>;
+ if(!data)return <div className="designer-workspace designer-performance-page"><GoogleSyncStatus/><div className="page-heading"><h1>Hiệu suất Designer</h1><button className="button outline" disabled={loading} onClick={()=>void load()}><RefreshCw size={16}/>Tải lại</button></div>{error?<div role="alert" className="alert error">{error}</div>:<div className="loading-state">Đang tải hiệu suất Designer…</div>}</div>;
  const summary=designSummary(rows,data);
  const periods=[...new Set(data.items.map(x=>x.period))].sort((a,b)=>a==='unknown'?1:b==='unknown'?-1:b.localeCompare(a));
 
@@ -27,7 +29,8 @@ export default function DesignerPerformancePanel(){
  const maxTrend=Math.max(1,...trend.map(x=>metric==='tasks'?x.total:x.totalPoints));
  const sourceGradient=sourceRows.reduce((acc,x)=>{const start=acc.total,end=start+(summary.total?x.count/summary.total*100:0);return {total:end,parts:[...acc.parts,`${x.color} ${start}% ${end}%`]};},{total:0,parts:[] as string[]});
  return <div className="designer-workspace designer-performance-page">
-  <div className="page-heading"><div><p className="eyebrow">KHÔNG GIAN LÀM VIỆC / DESIGNER</p><h1>Hiệu suất Designer</h1><p>Theo dõi số lượng task, workload và mức độ phức tạp theo KPI CONFIG 2026.</p></div><button className="button outline" disabled={loading} onClick={()=>void load()}><RefreshCw size={16}/>{loading?'Đang tải…':'Tải lại'}</button></div>
+  <GoogleSyncStatus/><div className="page-heading"><div><p className="eyebrow">KHÔNG GIAN LÀM VIỆC / DESIGNER</p><h1>Hiệu suất Designer</h1><p>Theo dõi số lượng task, workload và mức độ phức tạp theo KPI CONFIG 2026.</p></div><button className="button outline" disabled={loading} onClick={()=>void load()}><RefreshCw size={16}/>{loading?'Đang tải…':'Tải lại'}</button></div>
+  <p className={data.live?'data-note':'alert error'} role={data.live?undefined:'alert'}>{data.live?`Đã đồng bộ Google${data.lastSyncedAt?` lúc ${new Date(data.lastSyncedAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}`:''}. Tự kiểm tra mỗi phút khi trang đang mở.`:data.warning||'Đang hiển thị bản lưu.'}</p>
   {error&&<div role="alert" className="alert error">{error}</div>}
   <div className="tools-row designer-filters"><select aria-label="Tháng hiệu suất" value={period} onChange={e=>setPeriod(e.target.value)}><option value="all">Tất cả tháng</option>{periods.map(p=><option key={p} value={p}>{monthLabel(p)}</option>)}</select><select aria-label="Lọc loại task hiệu suất" value={type} onChange={e=>setType(e.target.value)}><option value="all">Tất cả loại task</option>{types.map(t=><option key={t} value={t}>{t||'Chưa phân loại'}</option>)}</select><select aria-label="Lọc nguồn task" value={source} onChange={e=>setSource(e.target.value)}><option value="all">Tất cả nguồn task</option><option value="planned">Theo kế hoạch</option><option value="emergent">Phát sinh</option><option value="unknown">Chưa ghi nền tảng</option></select></div>
   <div className="design-performance-stats">
