@@ -18,9 +18,15 @@ export async function GET(request:Request){
  try{
   const response=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:process.env.GOOGLE_CLIENT_ID||'',client_secret:process.env.GOOGLE_CLIENT_SECRET||'',code,code_verifier:saved.verifier,redirect_uri:googleCallback,grant_type:'authorization_code'}),cache:'no-store',signal:AbortSignal.timeout(15000)});
   const token=await response.json();
-  if(!response.ok||!token.access_token||!token.refresh_token||!String(token.scope||'').split(' ').includes('https://www.googleapis.com/auth/drive.readonly'))return finish('failed');
+  if(!response.ok){
+   const errors:Record<string,string>={invalid_client:'invalid_client',unauthorized_client:'invalid_client',invalid_grant:'invalid_grant',invalid_scope:'missing_scope',access_denied:'denied'};
+   return finish(errors[String(token.error)]||'token_exchange_failed');
+  }
+  if(!token.access_token)return finish('token_exchange_failed');
+  if(!token.refresh_token)return finish('missing_refresh_token');
+  if(!String(token.scope||'').split(' ').includes('https://www.googleapis.com/auth/drive.readonly'))return finish('missing_scope');
   const grant:GoogleGrant={accessToken:token.access_token,refreshToken:token.refresh_token,expiresAt:Date.now()+Number(token.expires_in||3600)*1000,connectedAt:new Date().toISOString()};
-  await writePrivate(googleTokenPath,grant);
+  try{await writePrivate(googleTokenPath,grant)}catch{return finish('save_failed')}
   return finish('connected');
- }catch{return finish('failed')}
+ }catch{return finish('token_exchange_failed')}
 }
