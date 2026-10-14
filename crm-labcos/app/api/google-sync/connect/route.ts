@@ -1,7 +1,7 @@
 import {randomBytes,createHash} from 'node:crypto';
 import {cookies} from 'next/headers';
 import {getChatGPTUser} from '../../../chatgpt-auth';
-import {crmOrigin,googleCallback,googleConfigured} from '../../../../lib/google-source';
+import {crmOrigin,googleCallback,googleConfigured,googleCredentials} from '../../../../lib/google-source';
 export const runtime='nodejs';
 export async function POST(request:Request){
  const user=await getChatGPTUser();
@@ -11,6 +11,6 @@ export async function POST(request:Request){
  const state=randomBytes(32).toString('base64url'),verifier=randomBytes(48).toString('base64url');
  (await cookies()).set('labcos-google-state',JSON.stringify({state,verifier,email:user.email,expires:Date.now()+600000}),{httpOnly:true,secure:true,sameSite:'lax',path:'/api/google-sync',maxAge:600});
  const url=new URL('https://accounts.google.com/o/oauth2/v2/auth');
- url.search=new URLSearchParams({client_id:process.env.GOOGLE_CLIENT_ID!,redirect_uri:googleCallback,response_type:'code',scope:'https://www.googleapis.com/auth/drive.readonly',access_type:'offline',prompt:'consent',state,code_challenge:createHash('sha256').update(verifier).digest('base64url'),code_challenge_method:'S256'}).toString();
+ url.search=new URLSearchParams({client_id:googleCredentials().clientId,redirect_uri:googleCallback,response_type:'code',scope:'https://www.googleapis.com/auth/drive.readonly',access_type:'offline',prompt:'consent',state,code_challenge:createHash('sha256').update(verifier).digest('base64url'),code_challenge_method:'S256'}).toString();
  return Response.redirect(url,303);
 }

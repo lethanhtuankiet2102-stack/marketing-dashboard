@@ -1,7 +1,7 @@
 import {cookies} from 'next/headers';
 import {timingSafeEqual} from 'node:crypto';
 import {getChatGPTUser} from '../../../chatgpt-auth';
-import {googleCallback,crmOrigin,googleTokenPath,type GoogleGrant} from '../../../../lib/google-source';
+import {googleCallback,googleCredentials,crmOrigin,googleTokenPath,type GoogleGrant} from '../../../../lib/google-source';
 import {writePrivate} from '../../../../lib/private-store';
 export const runtime='nodejs';
 function finish(status:string){return Response.redirect(`${crmOrigin}/?google_sync=${status}`,303)}
@@ -16,7 +16,8 @@ export async function GET(request:Request){
  if(url.searchParams.has('error'))return finish('denied');
  const code=url.searchParams.get('code');if(!code)return finish('denied');
  try{
-  const response=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:process.env.GOOGLE_CLIENT_ID||'',client_secret:process.env.GOOGLE_CLIENT_SECRET||'',code,code_verifier:saved.verifier,redirect_uri:googleCallback,grant_type:'authorization_code'}),cache:'no-store',signal:AbortSignal.timeout(15000)});
+  const credentials=googleCredentials();
+  const response=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:credentials.clientId,client_secret:credentials.clientSecret,code,code_verifier:saved.verifier,redirect_uri:googleCallback,grant_type:'authorization_code'}),cache:'no-store',signal:AbortSignal.timeout(15000)});
   const token=await response.json();
   if(!response.ok){
    const errors:Record<string,string>={invalid_client:'invalid_client',unauthorized_client:'invalid_client',invalid_grant:'invalid_grant',invalid_scope:'missing_scope',access_denied:'denied'};
