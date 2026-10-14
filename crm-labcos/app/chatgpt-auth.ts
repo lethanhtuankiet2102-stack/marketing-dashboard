@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { readPrivate } from '../lib/private-store';
 
-export type ChatGPTUser = { userId:string; displayName:string; email:string; fullName:string|null; role:'owner'|'viewer'|'designer' };
+export type ChatGPTUser = { userId:string; displayName:string; email:string; fullName:string|null; role:'owner'|'viewer'|'designer'|'order' };
 const cookieName='labcos-session';
 
 function secret() {
@@ -25,24 +25,24 @@ export function verifySession(token:string|undefined):ChatGPTUser|null {
     const actual=Buffer.from(signature);
     if (actual.length!==expected.length||!timingSafeEqual(actual,expected)) return null;
     const parsed=JSON.parse(Buffer.from(payload,'base64url').toString('utf8')) as {user:ChatGPTUser;expires:number};
-    if (parsed.expires<Date.now()||!['owner','viewer','designer'].includes(parsed.user?.role)||!parsed.user.email) return null;
+    if (parsed.expires<Date.now()||!['owner','viewer','designer','order'].includes(parsed.user?.role)||!parsed.user.email) return null;
     return parsed.user;
   } catch { return null; }
 }
-export async function getChatGPTUser() {
+export async function getChatGPTUser(allowOrder=false) {
   const user=verifySession((await cookies()).get(cookieName)?.value);
   if(user&&user.role!=='owner') {
     try {
-      const viewers=await readPrivate<{email:string;role?:'viewer'|'designer'}[]>('labcos/viewers.json',[]);
+      const viewers=await readPrivate<{email:string;role?:'viewer'|'designer'|'order'}[]>('labcos/viewers.json',[]);
       const account=viewers.find(viewer=>viewer.email===user.email);
       if(!account)return null;
-      user.role=account.role==='designer'?'designer':'viewer';
+      user.role=account.role==='designer'?'designer':account.role==='order'?'order':'viewer';
     } catch {return null}
   }
-  return user;
+  return user?.role==='order'&&!allowOrder?null:user;
 }
 export async function requireChatGPTUser(returnTo:string):Promise<ChatGPTUser> {
-  const user=await getChatGPTUser();
+  const user=await getChatGPTUser(true);
   if (user) return user;
   redirect(chatGPTSignInPath(returnTo));
 }

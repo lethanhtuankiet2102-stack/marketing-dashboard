@@ -1,6 +1,6 @@
 import { getChatGPTUser } from './chatgpt-auth';
 
-export async function dashboardRole(): Promise<'owner' | 'viewer' | 'designer' | null> {
+export async function dashboardRole(): Promise<'owner' | 'viewer' | 'designer' | 'order' | null> {
   const user = await getChatGPTUser();
   return user?.role ?? null;
 }

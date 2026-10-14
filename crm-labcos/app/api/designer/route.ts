@@ -1,3 +1,4 @@
+import {orderTask,type DesignOrder} from '../../design-orders-model';
 import {refreshDesigner} from '../../../lib/designer-sync';
 import {syncWarning} from '../../../lib/google-source';
 import { getChatGPTUser } from '../../chatgpt-auth';
@@ -9,18 +10,20 @@ const path='labcos/designer.json';
 const headers={'Cache-Control':'private, no-store'};
 function payload(data:DesignData,role:string){return {...data,canEdit:role==='owner'||role==='designer',items:data.items.map(item=>({...item,effectiveLevel:effectiveLevel(item,data),workloadPoints:workloadPoints(item,data)}))};}
 export async function GET(){
-  const user=await getChatGPTUser();
+  const user=await getChatGPTUser(true);
   if(!user)return Response.json({error:'Cần đăng nhập.'},{status:401,headers});
   try{
     let data:DesignData|null=null,warning:string|null=null,live=false;
     try{data=await refreshDesigner();live=true}catch(error){warning=syncWarning(error);data=await readPrivate<DesignData|null>(path,null);}
 
     if(!data)return Response.json({error:'Chưa có dữ liệu ORDER DESIGN.'},{status:503,headers});
-    return Response.json({...payload(data,user.role),live,warning},{headers});
+    const orders=await readPrivate<DesignOrder[]>('labcos/design-orders.json',[]);
+    const combined={...data,items:[...data.items,...orders.filter(o=>o.status!=='CANCELED').map(orderTask)]};
+    return Response.json({...payload(combined,user.role),live,warning},{headers});
   }catch{return Response.json({error:'Không tải được dữ liệu Designer. Hãy thử lại.'},{status:503,headers});}
 }
 export async function PATCH(request:Request){
-  const user=await getChatGPTUser();
+  const user=await getChatGPTUser(true);
   if(!user)return Response.json({error:'Cần đăng nhập.'},{status:401,headers});
   if(!['owner','designer'].includes(user.role))return Response.json({error:'Tài khoản chỉ có quyền xem.'},{status:403,headers});
   if(request.headers.get('origin')!==new URL(request.url).origin)return Response.json({error:'Yêu cầu không hợp lệ.'},{status:403,headers});
@@ -38,7 +41,8 @@ export async function PATCH(request:Request){
       task.updatedAt=new Date().toISOString();
       return current;
     });
-    return Response.json(payload(data,user.role),{headers});
+    const orders=await readPrivate<DesignOrder[]>('labcos/design-orders.json',[]);
+    return Response.json(payload({...data,items:[...data.items,...orders.filter(o=>o.status!=='CANCELED').map(orderTask)]},user.role),{headers});
   }catch(error){
     const message=error instanceof Error?error.message:'';
     if(message==='NOT_FOUND')return Response.json({error:'Không tìm thấy task.'},{status:404,headers});
