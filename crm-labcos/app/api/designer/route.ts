@@ -8,7 +8,7 @@ export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const path='labcos/designer.json';
 const headers={'Cache-Control':'private, no-store'};
-function payload(data:DesignData,role:string){return {...data,canEdit:role==='owner'||role==='designer',items:data.items.map(item=>({...item,effectiveLevel:effectiveLevel(item,data),workloadPoints:workloadPoints(item,data)}))};}
+function payload(data:DesignData,role:string){return {...data,canEdit:role==='owner'||role==='manager'||role==='designer',items:data.items.map(item=>({...item,effectiveLevel:effectiveLevel(item,data),workloadPoints:workloadPoints(item,data)}))};}
 export async function GET(){
   const user=await getChatGPTUser(true);
   if(!user)return Response.json({error:'Cần đăng nhập.'},{status:401,headers});
@@ -25,7 +25,7 @@ export async function GET(){
 export async function PATCH(request:Request){
   const user=await getChatGPTUser(true);
   if(!user)return Response.json({error:'Cần đăng nhập.'},{status:401,headers});
-  if(!['owner','designer'].includes(user.role))return Response.json({error:'Tài khoản chỉ có quyền xem.'},{status:403,headers});
+  if(!['owner','manager','designer'].includes(user.role))return Response.json({error:'Tài khoản chỉ có quyền xem.'},{status:403,headers});
   if(request.headers.get('origin')!==new URL(request.url).origin)return Response.json({error:'Yêu cầu không hợp lệ.'},{status:403,headers});
   let input:{id?:string;level?:string|null;expectedUpdatedAt?:string|null};
   try{input=await request.json()}catch{return Response.json({error:'Yêu cầu không hợp lệ.'},{status:400,headers});}

@@ -47,8 +47,8 @@ export default function Dashboard() {
   const [statusFilter,setStatusFilter] = useState('all');
   const [contentFilter,setContentFilter] = useState('all');
   const [menuOpen,setMenuOpen] = useState(false);
-  const [role,setRole] = useState<'owner'|'viewer'|'designer'|'order'|null>(null);
-  const canEdit = role === 'owner';
+  const [role,setRole] = useState<'owner'|'viewer'|'designer'|'order'|'manager'|null>(null);
+  const canEdit = role === 'owner' || role === 'manager';
 
   const load = useCallback(async () => {
     try {
@@ -58,7 +58,7 @@ export default function Dashboard() {
       const account=await auth.json();
       if(account.user.role==='order'){setRole('order');setLeads([]);setContent([]);setTab(current=>designerTabs.some(child=>child.id===current)?current:'design-orders');return;}
       const response = await fetch('/api/dashboard', { cache:'no-store' });
-      const data = await response.json() as { error?:string; leads?:Lead[]; content?:Content[]; role?:'owner'|'viewer'|'designer'|'order' };
+      const data = await response.json() as { error?:string; leads?:Lead[]; content?:Content[]; role?:'owner'|'viewer'|'designer'|'order'|'manager' };
       if (!response.ok) throw new Error(data.error || 'Không tải được dữ liệu.');
       setLeads(data.leads || []); setContent(data.content || []); setRole(data.role || null);
     } catch (e) { setError(e instanceof Error ? e.message : 'Không tải được dữ liệu.'); }
@@ -125,7 +125,7 @@ export default function Dashboard() {
     </aside>
     {menuOpen && <button className="menu-backdrop" aria-label="Đóng menu" onClick={()=>setMenuOpen(false)}/>}
     <div className="main-area">
-      <header className="topbar"><div className="top-left"><button className="menu-toggle" aria-label="Mở menu" onClick={()=>setMenuOpen(true)}><Menu size={21}/></button><span className="breadcrumb">LABCOS <ChevronRight size={14}/> {marketingTabs.some(child=>child.id===tab)?`Marketing / ${marketingTabs.find(child=>child.id===tab)?.label}`:designerTabs.some(child=>child.id===tab)?`Designer / ${designerTabs.find(child=>child.id===tab)?.label}`:tabs.find(x=>x.id===tab)?.label}</span></div><div className="top-actions"><span className="updated">{role==='order'?'Order':role==='designer'?'Designer':role==='viewer'?'Quyền chỉ xem':role==='owner'?'Quản trị':'Dữ liệu trực tiếp'}</span><button className="icon-button" title="Tải lại dữ liệu" aria-label="Tải lại dữ liệu" onClick={()=>{setLoading(true);void load();}}><RefreshCw size={17}/></button><button className="button outline" onClick={async()=>{await fetch('/api/auth/logout',{method:'POST'});window.location.assign('/login')}}>Đăng xuất</button><div className="avatar" title="Workspace riêng tư">L</div></div></header>
+      <header className="topbar"><div className="top-left"><button className="menu-toggle" aria-label="Mở menu" onClick={()=>setMenuOpen(true)}><Menu size={21}/></button><span className="breadcrumb">LABCOS <ChevronRight size={14}/> {marketingTabs.some(child=>child.id===tab)?`Marketing / ${marketingTabs.find(child=>child.id===tab)?.label}`:designerTabs.some(child=>child.id===tab)?`Designer / ${designerTabs.find(child=>child.id===tab)?.label}`:tabs.find(x=>x.id===tab)?.label}</span></div><div className="top-actions"><span className="updated">{role==='manager'?'Trưởng bộ phận':role==='order'?'Order':role==='designer'?'Designer':role==='viewer'?'Quyền chỉ xem':role==='owner'?'Quản trị':'Dữ liệu trực tiếp'}</span><button className="icon-button" title="Tải lại dữ liệu" aria-label="Tải lại dữ liệu" onClick={()=>{setLoading(true);void load();}}><RefreshCw size={17}/></button><button className="button outline" onClick={async()=>{await fetch('/api/auth/logout',{method:'POST'});window.location.assign('/login')}}>Đăng xuất</button><div className="avatar" title="Workspace riêng tư">L</div></div></header>
       <main className={`page-content ${tab==='google'?'google-page-content':''}`}>
         {error && <div className="alert error" role="alert">{error}<button onClick={()=>setError('')} aria-label="Đóng"><X size={16}/></button></div>}
         {notice && <div className="alert success" role="status"><Check size={16}/>{notice}</div>}

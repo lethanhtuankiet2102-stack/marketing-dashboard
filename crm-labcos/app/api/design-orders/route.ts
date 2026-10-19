@@ -9,11 +9,11 @@ const path='labcos/design-orders.json',headers={'Cache-Control':'private, no-sto
 async function config(){const data=await readPrivate<DesignData|null>('labcos/designer.json',null);if(!data?.levels?.length)throw new Error('CONFIG');return data;}
 export async function GET(){
  const user=await getChatGPTUser(true);if(!user)return Response.json({error:'Cần đăng nhập.'},{status:401,headers});
- try{const [data,orders]=await Promise.all([config(),readPrivate<DesignOrder[]>(path,[])]);return Response.json({orders:orders.map(o=>scoreOrder(o,data)),levels:data.levels,taskDefaults:data.taskDefaults,platforms:[...new Set(data.items.map(t=>t.platform).filter(Boolean))],canEdit:['owner','designer','order'].includes(user.role)},{headers});}catch{return Response.json({error:'Chưa tải được Order Design hoặc cấu hình KPI. Hãy thử lại.'},{status:503,headers});}
+ try{const [data,orders]=await Promise.all([config(),readPrivate<DesignOrder[]>(path,[])]);return Response.json({orders:orders.map(o=>scoreOrder(o,data)),levels:data.levels,taskDefaults:data.taskDefaults,platforms:[...new Set(data.items.map(t=>t.platform).filter(Boolean))],canEdit:['owner','manager','designer','order'].includes(user.role)},{headers});}catch{return Response.json({error:'Chưa tải được Order Design hoặc cấu hình KPI. Hãy thử lại.'},{status:503,headers});}
 }
 async function save(request:Request,editing:boolean){
  const user=await getChatGPTUser(true);if(!user)return Response.json({error:'Cần đăng nhập.'},{status:401,headers});
- if(!['owner','designer','order'].includes(user.role))return Response.json({error:'Tài khoản chỉ có quyền xem.'},{status:403,headers});
+ if(!['owner','manager','designer','order'].includes(user.role))return Response.json({error:'Tài khoản chỉ có quyền xem.'},{status:403,headers});
  if(request.headers.get('origin')!==new URL(request.url).origin)return Response.json({error:'Yêu cầu không hợp lệ.'},{status:403,headers});
  try{
   const body=await request.text();if(body.length>18000)throw new Error('INPUT');

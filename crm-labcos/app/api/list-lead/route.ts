@@ -33,7 +33,7 @@ export async function GET() {
 export async function POST(request:Request) {
   const user=await getChatGPTUser();
   if(!user)return Response.json({error:'Cần đăng nhập.'},{status:401,headers});
-  if(user.role!=='owner')return Response.json({error:'Chỉ quản trị viên được cập nhật List Lead.'},{status:403,headers});
+  if(!['owner','manager'].includes(user.role))return Response.json({error:'Chỉ quản trị viên được cập nhật List Lead.'},{status:403,headers});
   if(request.headers.get('origin')!==new URL(request.url).origin)return Response.json({error:'Yêu cầu không hợp lệ.'},{status:403,headers});
   if(Number(request.headers.get('content-length')||0)>4_000_000)return Response.json({error:'File phải nhỏ hơn 4 MB.'},{status:413,headers});
   let records:Stored;

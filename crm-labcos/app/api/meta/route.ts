@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { dashboardRole, requireOwnerWrite } from '../../roles';
+import { dashboardRole, requireAdminWrite } from '../../roles';
 import { readPrivate, writePrivate } from '../../../lib/private-store';
 
 export const dynamic = "force-dynamic";
@@ -214,7 +214,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const denied = await requireOwnerWrite(); if (denied) return denied;
+  const denied = await requireAdminWrite(); if (denied) return denied;
   const origin = request.headers.get("Origin");
   if (origin !== new URL(request.url).origin || !request.headers.get("Content-Type")?.startsWith("application/json")) {
     return Response.json({ error: "Yêu cầu không hợp lệ." }, { status: 403, headers: noStore });
@@ -245,3 +245,4 @@ export async function POST(request: Request) {
     return Response.json({ error: "Chưa lưu được mã truy cập. Thử lại sau." }, { status: 500, headers: noStore });
   }
 }
+

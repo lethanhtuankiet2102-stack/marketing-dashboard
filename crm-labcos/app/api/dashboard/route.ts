@@ -1,4 +1,4 @@
-import { dashboardRole, requireOwnerWrite } from '../../roles';
+import { dashboardRole, requireAdminWrite } from '../../roles';
 import { readPrivate, writePrivate } from '../../../lib/private-store';
 
 export const dynamic='force-dynamic';
@@ -35,7 +35,7 @@ export async function POST(request:Request) { return mutate(request,'POST'); }
 export async function PATCH(request:Request) { return mutate(request,'PATCH'); }
 export async function DELETE(request:Request) { return mutate(request,'DELETE'); }
 async function mutate(request:Request,method:'POST'|'PATCH'|'DELETE') {
-  const denied=await requireOwnerWrite();if(denied)return denied;
+  const denied=await requireAdminWrite();if(denied)return denied;
   if(!validWrite(request))return Response.json({error:'Yêu cầu không hợp lệ.'},{status:403});
   try {
     const input=await request.json() as Record<string,unknown>;
@@ -55,3 +55,4 @@ async function mutate(request:Request,method:'POST'|'PATCH'|'DELETE') {
     return Response.json(method==='POST'?{id}:{ok:true},{status:method==='POST'?201:200});
   }catch(e){console.error('Dashboard write failed',e);return error()}
 }
+
