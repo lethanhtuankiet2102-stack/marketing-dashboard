@@ -10,7 +10,21 @@ let orders=[base,{...base,id:'order-2',number:2,status:'CANCELED',level:'L5'},{.
 let actor={role:'owner'};
 const route=mod('app/api/designer/route.ts',{'../../../lib/designer-workspace':workspace,'../../design-orders-model':ordersModel,'../../../lib/designer-sync':{refreshDesigner:async()=>structuredClone(config)},'../../../lib/google-source':{syncWarning:()=>''},'../../chatgpt-auth':{getChatGPTUser:async()=>actor},'../../../lib/private-store':{readPrivate:async(path,fallback)=>path.includes('design-orders.json')?structuredClone(orders):structuredClone(config),updatePrivate:async(path,fn)=>{const next=fn(structuredClone(config));Object.assign(config,next);return next;}},'../../designer-model':model});
 (async()=>{
- const initial=await (await route.GET()).json();assert.equal(initial.items.length,4);assert.equal(initial.orders.length,3);assert.equal(new Set(initial.items.map(t=>t.id)).size,4);
+ const sortedInput=[
+ {...sheet,id:'sheet-old',briefDate:'31/12/2025'},
+ {...sheet,id:'order:old',briefDate:'2026-01-01',sheetRow:1},
+ {...sheet,id:'sheet-new',briefDate:'02/01/2026'},
+ {...sheet,id:'order:blank',briefDate:''},
+ {...sheet,id:'order:new',briefDate:'2026-10-19',sheetRow:2},
+ {...sheet,id:'order:same-day',briefDate:'19/10/2026',sheetRow:3},
+ {...sheet,id:'sheet-invalid',briefDate:'31/02/2026'},
+ {...sheet,id:'sheet-short',briefDate:'5/1/2026'}
+ ];
+ const originalOrder=sortedInput.map(t=>t.id).join(',');
+ const sorted=model.sortDesignerTasks(sortedInput);
+ assert.equal(sorted.map(t=>t.id).join(','),'order:same-day,order:new,order:old,order:blank,sheet-short,sheet-new,sheet-old,sheet-invalid');
+ assert.equal(sortedInput.map(t=>t.id).join(','),originalOrder);
+ const initial=await (await route.GET()).json();assert.equal(initial.items.length,4);assert.equal(initial.orders.length,3);assert.ok(initial.items[0].id.startsWith('order:'));assert.equal(initial.items[initial.items.length-1].id,'sheet-1');assert.equal(new Set(initial.items.map(t=>t.id)).size,4);
  let summary=model.designSummary(initial.items,initial);assert.equal(summary.total,3);assert.equal(summary.totalPoints,5);assert.equal(summary.donePoints,1);assert.equal(summary.unscored,1);assert.equal(summary.emergent,1);
  // List rows and performance both consume the same API; canceled rows remain editable.
  const active=initial.items.filter(t=>!model.isDesignCanceled(t));assert.equal(model.designSummary(active,initial).totalPoints,summary.totalPoints);assert.ok(initial.items.some(t=>t.status==='CANCELED'));
@@ -23,5 +37,5 @@ const route=mod('app/api/designer/route.ts',{'../../../lib/designer-workspace':w
  actor=null;assert.equal((await route.GET()).status,401);
  const nav=fs.readFileSync(root+'app/workspace.tsx','utf8');assert.ok(!nav.includes("id:'design-orders'"));assert.ok(nav.includes("label:'Task & Order'"));
  const panel=fs.readFileSync(root+'app/designer-panel.tsx','utf8');assert.ok(panel.includes('DesignOrderEditor'));assert.ok(panel.includes('orderById.get(item.id)'));
- console.log('PASS: unified Sheet/CRM rows, canceled order retention and KPI exclusion, shared performance totals, level changes, order edits, permissions and single navigation tab.');
+ console.log('PASS: CRM-first sorting, ISO/Vietnamese dates, month/year boundaries, same-day ties and missing dates; unified Sheet/CRM rows, canceled order retention and KPI exclusion, shared performance totals, level changes, order edits, permissions and single navigation tab.');
 })().catch(error=>{console.error(error);process.exit(1)});

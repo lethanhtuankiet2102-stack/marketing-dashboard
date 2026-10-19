@@ -33,7 +33,7 @@ export default function DesignerPanel(){
   const pages=Math.max(1,Math.ceil(rows.length/25)),currentPage=Math.min(page,pages),visible=rows.slice((currentPage-1)*25,currentPage*25);
   const filter=(fn:()=>void)=>{fn();setPage(1)};
   return <div className="designer-workspace designer-task-page">
-    <GoogleSyncStatus/><div className="page-heading"><div><p className="eyebrow">KHÔNG GIAN LÀM VIỆC / DESIGNER</p><h1>Task & Order Design</h1><p>Tạo order và theo dõi toàn bộ task thiết kế · điểm theo KPI CONFIG 2026.</p></div><div className="order-actions">{data?.canOrder&&<button className="button primary" disabled={loading||!!saving||!!orderEditor} onClick={()=>setOrderEditor('new')}><Plus size={17}/>Tạo order</button>}<button className="button outline" disabled={loading||!!saving||!!orderEditor} onClick={()=>void load()}><RefreshCw size={16}/>{loading?'Đang tải…':'Tải lại'}</button></div></div>
+    <GoogleSyncStatus/><div className="page-heading"><div><p className="eyebrow">KHÔNG GIAN LÀM VIỆC / DESIGNER</p><h1>Task & Order Design</h1><p>Order CRM đứng trước · ngày brief mới nhất ở đầu mỗi nhóm.</p></div><div className="order-actions">{data?.canOrder&&<button className="button primary" disabled={loading||!!saving||!!orderEditor} onClick={()=>setOrderEditor('new')}><Plus size={17}/>Tạo order</button>}<button className="button outline" disabled={loading||!!saving||!!orderEditor} onClick={()=>void load()}><RefreshCw size={16}/>{loading?'Đang tải…':'Tải lại'}</button></div></div>
     {error&&<div role="alert" className="alert error">{error}</div>}{notice&&<div role="status" className="alert success">{notice}</div>}
     {!data&&!error&&<div className="loading-state">Đang tải task Designer…</div>}
     {data&&<>
