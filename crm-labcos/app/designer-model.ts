@@ -14,8 +14,10 @@ export function designTaskSource(task:Pick<DesignTask,'platform'>):'planned'|'em
  const platform=task.platform.normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toUpperCase();
  return !platform?'unknown':/\bPHAT SINH\b/.test(platform)?'emergent':'planned';
 }
+export const isDesignCanceled=(task:DesignTask)=>['CANCELED','CANCELLED'].includes(task.status.trim().toUpperCase());
 export const isDesignDone=(task:DesignTask)=>task.status.trim().toUpperCase()==='DONE';
 export function designSummary(items:DesignTask[],data:DesignData){
+ items=items.filter(task=>!isDesignCanceled(task));
  const done=items.filter(isDesignDone),emergent=items.filter(x=>designTaskSource(x)==='emergent');
  const points=(rows:DesignTask[])=>rows.reduce((sum,x)=>sum+(workloadPoints(x,data)??0),0);
  const totalPoints=points(items);

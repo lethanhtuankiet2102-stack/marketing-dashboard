@@ -9,11 +9,10 @@ import SalePerformancePanel from './sale-performance-panel';
 import SaleLeadReportPanel from './sale-lead-report-panel';
 import MarketingOverviewPanel from './marketing-overview-panel';
 import UserAccessPanel from './user-access-panel';
-import DesignOrdersPanel from './design-orders-panel';
 import DesignerPanel from './designer-panel';
 import DesignerPerformancePanel from './designer-performance-panel';
 
-type Tab = 'overview' | 'marketing' | 'leads' | 'list-lead' | 'sale-performance' | 'sale-lead-report' | 'content' | 'kpis' | 'meta' | 'google' | 'users' | 'designer' | 'designer-performance' | 'design-orders';
+type Tab = 'overview' | 'marketing' | 'leads' | 'list-lead' | 'sale-performance' | 'sale-lead-report' | 'content' | 'kpis' | 'meta' | 'google' | 'users' | 'designer' | 'designer-performance';
 type Lead = { id:string; name:string; company:string; phone:string; source:string; status:string; value:number; next_action:string; note:string; created_at:string; updated_at:string };
 type Content = { id:string; title:string; channel:string; status:string; publish_date:string; brief:string; created_at:string; updated_at:string };
 type LeadForm = { name:string; company:string; phone:string; source:string; status:string; value:string; nextAction:string; note:string };
@@ -22,7 +21,7 @@ const stages = [ ['new','Mới'], ['contacted','Đã liên hệ'], ['interested'
 const contentStages = [ ['draft','Bản nháp'], ['review','Chờ duyệt'], ['scheduled','Đã lên lịch'], ['published','Đã đăng'] ] as const;
 const tabs = [ { id:'overview', label:'Tổng quan', icon:LayoutDashboard }, { id:'marketing', label:'Marketing', icon:Megaphone }, { id:'leads', label:'Khách hàng & Lead', icon:Users }, { id:'sale-performance', label:'Sale Performance', icon:BarChart3 }, { id:'sale-lead-report', label:'Sale Lead Report', icon:Users }, { id:'designer', label:'Designer', icon:Pencil }, { id:'kpis', label:'KPI', icon:BarChart3 }, { id:'users', label:'Người dùng', icon:Users } ] as const;
 const marketingTabs = [ { id:'marketing', label:'Overview', icon:LayoutDashboard }, { id:'meta', label:'Meta Ads', icon:Megaphone }, { id:'google', label:'Google Ads', icon:BarChart3 }, { id:'list-lead', label:'List Lead', icon:FileText }, { id:'content', label:'Nội dung', icon:FileText } ] as const;
-const designerTabs = [ { id:'designer-performance', label:'Hiệu suất', icon:BarChart3 }, { id:'designer', label:'Danh sách task', icon:FileText }, { id:'design-orders', label:'Order Design', icon:Plus } ] as const;
+const designerTabs = [ { id:'designer-performance', label:'Hiệu suất', icon:BarChart3 }, { id:'designer', label:'Task & Order', icon:FileText } ] as const;
 const emptyLead:LeadForm = { name:'', company:'', phone:'', source:'Facebook Ads', status:'new', value:'', nextAction:'', note:'' };
 const emptyContent:ContentForm = { title:'', channel:'Facebook', status:'draft', publishDate:'', brief:'' };
 const money = (n:number) => new Intl.NumberFormat('vi-VN', { notation:'compact', maximumFractionDigits:1 }).format(n) + ' ₫';
@@ -56,7 +55,7 @@ export default function Dashboard() {
       const auth = await fetch('/api/auth/me', {cache:'no-store'});
       if(!auth.ok) throw new Error('Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.');
       const account=await auth.json();
-      if(account.user.role==='order'){setRole('order');setLeads([]);setContent([]);setTab(current=>designerTabs.some(child=>child.id===current)?current:'design-orders');return;}
+      if(account.user.role==='order'){setRole('order');setLeads([]);setContent([]);setTab(current=>designerTabs.some(child=>child.id===current)?current:'designer');return;}
       const response = await fetch('/api/dashboard', { cache:'no-store' });
       const data = await response.json() as { error?:string; leads?:Lead[]; content?:Content[]; role?:'owner'|'viewer'|'designer'|'order'|'manager' };
       if (!response.ok) throw new Error(data.error || 'Không tải được dữ liệu.');
@@ -142,7 +141,6 @@ export default function Dashboard() {
           {tab==='meta'&&<MetaPanel canEdit={canEdit}/>}
           {tab==='marketing'&&<MarketingOverviewPanel onNavigate={navigate} contentCount={content.length}/>}
           {tab==='google'&&<GoogleAdsPanel/>}
-          {tab==='design-orders'&&<DesignOrdersPanel/>}
           {tab==='designer'&&<DesignerPanel/>}
           {tab==='designer-performance'&&<DesignerPerformancePanel/>}
           {tab==='list-lead'&&<ListLeadPanel canEdit={canEdit}/>}

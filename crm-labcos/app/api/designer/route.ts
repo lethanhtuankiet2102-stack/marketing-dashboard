@@ -1,14 +1,14 @@
-import {orderTask,type DesignOrder} from '../../design-orders-model';
+import {composeDesignerWorkspace} from '../../../lib/designer-workspace';
+import {type DesignOrder} from '../../design-orders-model';
 import {refreshDesigner} from '../../../lib/designer-sync';
 import {syncWarning} from '../../../lib/google-source';
 import { getChatGPTUser } from '../../chatgpt-auth';
 import { readPrivate, updatePrivate } from '../../../lib/private-store';
-import { workloadPoints, effectiveLevel, type DesignData } from '../../designer-model';
+import { type DesignData } from '../../designer-model';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const path='labcos/designer.json';
 const headers={'Cache-Control':'private, no-store'};
-function payload(data:DesignData,role:string){return {...data,canEdit:role==='owner'||role==='manager'||role==='designer',items:data.items.map(item=>({...item,effectiveLevel:effectiveLevel(item,data),workloadPoints:workloadPoints(item,data)}))};}
 export async function GET(){
   const user=await getChatGPTUser(true);
   if(!user)return Response.json({error:'Cần đăng nhập.'},{status:401,headers});
@@ -18,8 +18,7 @@ export async function GET(){
 
     if(!data)return Response.json({error:'Chưa có dữ liệu ORDER DESIGN.'},{status:503,headers});
     const orders=await readPrivate<DesignOrder[]>('labcos/design-orders.json',[]);
-    const combined={...data,items:[...data.items,...orders.filter(o=>o.status!=='CANCELED').map(orderTask)]};
-    return Response.json({...payload(combined,user.role),live,warning},{headers});
+    return Response.json({...composeDesignerWorkspace(data,orders,user.role),live,warning},{headers});
   }catch{return Response.json({error:'Không tải được dữ liệu Designer. Hãy thử lại.'},{status:503,headers});}
 }
 export async function PATCH(request:Request){
@@ -42,7 +41,7 @@ export async function PATCH(request:Request){
       return current;
     });
     const orders=await readPrivate<DesignOrder[]>('labcos/design-orders.json',[]);
-    return Response.json(payload({...data,items:[...data.items,...orders.filter(o=>o.status!=='CANCELED').map(orderTask)]},user.role),{headers});
+    return Response.json(composeDesignerWorkspace(data,orders,user.role),{headers});
   }catch(error){
     const message=error instanceof Error?error.message:'';
     if(message==='NOT_FOUND')return Response.json({error:'Không tìm thấy task.'},{status:404,headers});

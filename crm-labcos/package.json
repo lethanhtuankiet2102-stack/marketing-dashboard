@@ -2,8 +2,26 @@
   "name": "labcos-crm",
   "private": true,
   "version": "1.0.0",
-  "scripts": {"dev":"next dev", "build":"next build", "start":"next start", "typecheck":"tsc --noEmit"},
-  "dependencies": {"@vercel/blob":"^2.0.0", "fflate":"0.7.4", "lucide-react":"^0.563.0", "next":"16.1.6", "react":"19.2.3", "react-dom":"19.2.3"},
-  "devDependencies": {"@types/node":"^20", "@types/react":"^19", "@types/react-dom":"^19", "typescript":"^5"},
+  "scripts": {
+    "dev": "next dev",
+    "build": "pnpm run test:designer && next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test:designer": "node tests/design-orders.cjs && node tests/manager-role.cjs && node tests/unified-designer.cjs"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.0.0",
+    "fflate": "0.7.4",
+    "lucide-react": "^0.563.0",
+    "next": "16.1.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  },
   "packageManager": "pnpm@10.28.0"
 }
