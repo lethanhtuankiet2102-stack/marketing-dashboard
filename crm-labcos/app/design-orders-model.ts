@@ -12,9 +12,9 @@ export function scoreOrder(order:DesignOrder,config:Pick<DesignData,'levels'|'ta
 export function validateOrder(input:unknown):OrderFields{
  if(!input||typeof input!=='object')throw new Error('INPUT');
  const raw=input as Record<string,unknown>,value={...blankOrder};
- for(const key of Object.keys(value) as (keyof OrderFields)[]){if(typeof raw[key]!=='string'||raw[key].length>(['brief','note'].includes(key)?4000:['briefUrl','finalUrl'].includes(key)?2048:240))throw new Error('INPUT');value[key]=raw[key].trim();}
+ for(const key of Object.keys(value) as (keyof OrderFields)[]){if(key==='deadline'&&raw[key]===undefined)continue;if(typeof raw[key]!=='string'||raw[key].length>(['brief','note'].includes(key)?4000:['briefUrl','finalUrl'].includes(key)?2048:240))throw new Error('INPUT');value[key]=raw[key].trim();}
  if(!value.name||!value.platform||!value.taskType||(!value.brief&&!value.briefUrl)||!orderStatuses.some(s=>s===value.status))throw new Error('INPUT');
- if(!/^\d{4}-\d{2}-\d{2}$/.test(value.deadline)||Number.isNaN(Date.parse(value.deadline))||new Date(value.deadline).toISOString().slice(0,10)!==value.deadline)throw new Error('INPUT');
+ if(value.deadline&&(!/^\d{4}-\d{2}-\d{2}$/.test(value.deadline)||Number.isNaN(Date.parse(value.deadline))||new Date(value.deadline).toISOString().slice(0,10)!==value.deadline))throw new Error('INPUT');
  if(value.level&&!/^L[1-5]$/.test(value.level))throw new Error('INPUT');
  for(const key of ['briefUrl','finalUrl'] as const){if(value[key]){let url:URL;try{url=new URL(value[key])}catch{throw new Error('INPUT')}if(!['https:','http:'].includes(url.protocol)||url.username||url.password)throw new Error('INPUT');}}
  return value;
