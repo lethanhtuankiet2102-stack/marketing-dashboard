@@ -1,8 +1,8 @@
 export type Level={id:string;label:string;points:number;description:string;signals:string;examples:string;short:string};
-export type DesignTask={id:string;sheetRow:number;period:string;number:string;platform:string;name:string;briefUrl:string;taskType:string;briefBy:string;briefDate:string;deadline:string;status:string;sourceLevel:string|null;levelOverride:string|null;note:string;finalUrl:string;updatedAt:string|null};
+export type DesignTask={id:string;sheetRow:number;period:string;number:string;platform:string;name:string;briefUrl:string;taskType:string;taskTypeOverride?:string|null;statusOverride?:string|null;sourceTaskType?:string;sourceStatus?:string;briefBy:string;briefDate:string;deadline:string;status:string;sourceLevel:string|null;levelOverride:string|null;note:string;finalUrl:string;updatedAt:string|null};
 export type DesignData={lastSyncedAt?:string;live?:boolean;warning?:string|null;schemaVersion:number;sourceName:string;importedAt:string;levels:Level[];taskDefaults:Record<string,string>;items:DesignTask[]};
 export function effectiveLevel(task:DesignTask,data:Pick<DesignData,'levels'|'taskDefaults'>):string|null {
-  const id=task.levelOverride||task.sourceLevel||data.taskDefaults[task.taskType.trim()]||null;
+  const id=task.levelOverride||task.sourceLevel||data.taskDefaults[(task.taskTypeOverride??task.taskType).trim()]||null;
   return data.levels.some(level=>level.id===id)?id:null;
 }
 export function workloadPoints(task:DesignTask,data:Pick<DesignData,'levels'|'taskDefaults'>):number|null {
@@ -14,8 +14,8 @@ export function designTaskSource(task:Pick<DesignTask,'platform'>):'planned'|'em
  const platform=task.platform.normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toUpperCase();
  return !platform?'unknown':/\bPHAT SINH\b/.test(platform)?'emergent':'planned';
 }
-export const isDesignCanceled=(task:DesignTask)=>['CANCELED','CANCELLED'].includes(task.status.trim().toUpperCase());
-export const isDesignDone=(task:DesignTask)=>task.status.trim().toUpperCase()==='DONE';
+export const isDesignCanceled=(task:DesignTask)=>['CANCELED','CANCELLED'].includes((task.statusOverride??task.status).trim().toUpperCase());
+export const isDesignDone=(task:DesignTask)=>(task.statusOverride??task.status).trim().toUpperCase()==='DONE';
 export function designSummary(items:DesignTask[],data:DesignData){
  items=items.filter(task=>!isDesignCanceled(task));
  const done=items.filter(isDesignDone),emergent=items.filter(x=>designTaskSource(x)==='emergent');

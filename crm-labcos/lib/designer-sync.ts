@@ -38,7 +38,7 @@ export function parseDesignerSheets(sheets:Sheet[],previous:DesignData,now=new D
   // Never carry an override by row number: inserting rows can move a different task there.
   const match=counts.get(key)===1&&old?.length===1?old[0]:undefined;
   item.id=match?.id||`design-${createHash('sha256').update(key).digest('hex').slice(0,24)}-${index}`;
-  if(match){item.levelOverride=match.levelOverride;const comparable=(x:DesignTask)=>JSON.stringify([x.period,x.number,x.platform,x.name,x.briefUrl,x.taskType,x.briefBy,x.briefDate,x.deadline,x.status,x.sourceLevel,x.note,x.finalUrl]);item.updatedAt=comparable(match)===comparable(item)?match.updatedAt:now.toISOString();}
+  if(match){item.levelOverride=match.levelOverride;item.taskTypeOverride=match.taskTypeOverride??null;item.statusOverride=match.statusOverride??null;const comparable=(x:DesignTask)=>JSON.stringify([x.period,x.number,x.platform,x.name,x.briefUrl,x.taskType,x.briefBy,x.briefDate,x.deadline,x.status,x.sourceLevel,x.note,x.finalUrl]);item.updatedAt=comparable(match)===comparable(item)?match.updatedAt:now.toISOString();}
  }
  return {...previous,levels,taskDefaults,items,importedAt:now.toISOString(),sourceName:'[LABCOS] _ ORDER DESIGN (Google Sheets)',lastSyncedAt:now.toISOString(),live:true} as DesignData;
 }

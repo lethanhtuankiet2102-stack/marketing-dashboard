@@ -1,7 +1,7 @@
 import type {DesignData,DesignTask} from './designer-model';
 import {effectiveLevel,workloadPoints} from './designer-model';
-export const orderStatuses=['NEW','IN_PROGRESS','REVIEW','REVISION','DONE','CANCELED'] as const;
-export const orderStatusLabels:Record<string,string>={NEW:'Mới',IN_PROGRESS:'Đang làm',REVIEW:'Chờ duyệt',REVISION:'Cần chỉnh sửa',DONE:'Hoàn thành',CANCELED:'Đã hủy'};
+export const orderStatuses=['NEW','URGENT','IN_PROGRESS','REVIEW','REVISION','DONE','CANCELED'] as const;
+export const orderStatusLabels:Record<string,string>={NEW:'Mới',URGENT:'Gấp',IN_PROGRESS:'Đang làm',REVIEW:'Chờ duyệt',REVISION:'Cần chỉnh sửa',DONE:'Hoàn thành',CANCELED:'Đã hủy'};
 export type OrderFields={name:string;platform:string;taskType:string;brief:string;briefUrl:string;deadline:string;status:string;level:string;note:string;finalUrl:string};
 export type DesignOrder=OrderFields&{id:string;number:number;revision:string;createdAt:string;updatedAt:string;briefDate:string;briefBy:string;createdBy:string;history:{at:string;by:string;fields:string[]}[]};
 export const blankOrder:OrderFields={name:'',platform:'',taskType:'',brief:'',briefUrl:'',deadline:'',status:'NEW',level:'',note:'',finalUrl:''};

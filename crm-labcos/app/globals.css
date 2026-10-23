@@ -277,3 +277,23 @@ h1,h2,h3,p { margin-top:0; }
  .design-list-frame .design-compact-table .designer-select{max-width:220px}
 }
 @media(max-width:480px){.design-list-frame .design-compact-table tbody{padding:8px}.design-list-frame .design-compact-table tbody tr{gap:10px;padding:10px}.design-list-frame .tools-row{padding:12px}.design-list-frame .tools-row>*{min-width:0;max-width:100%}.design-list-frame .search-box{width:100%}.design-list-frame .list-lead-pagination{padding:12px;gap:10px;flex-wrap:wrap}}
+
+/* Colored, directly editable labels in the Designer grid. */
+.design-list-frame .design-compact-table th{font-weight:700;color:#3e6556}
+.design-list-frame .design-compact-table .design-tag{display:inline-flex;align-items:center;max-width:100%;min-height:32px;padding:6px 9px;border:1px solid #dbe4e1;border-radius:8px;box-sizing:border-box;font-family:inherit;font-size:11px;font-weight:600;line-height:1.4;white-space:normal;overflow-wrap:anywhere;color:#4d6259;background:#f1f5f3}
+.design-list-frame .design-compact-table .design-tag-select{display:block;width:100%;appearance:none;padding-right:24px;cursor:pointer;white-space:nowrap;text-overflow:ellipsis;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%2352675c' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;background-size:12px}
+.design-list-frame .design-compact-table .design-tag-select option{background:#fff;color:#273e34;font-weight:400}
+.design-list-frame .design-compact-table .design-tag-select:hover{filter:brightness(.97)}
+.design-list-frame .design-compact-table .design-tag-select:focus-visible{outline:2px solid #358b6a;outline-offset:2px}
+.design-list-frame .design-compact-table .design-tag-select:disabled{cursor:wait;opacity:.7}
+.design-list-frame .design-compact-table .design-status-urgent{background-color:#fee2e2;border-color:#ef9a9a;color:#b91c1c;font-weight:800}
+.design-list-frame .design-compact-table .design-status-done{background-color:#dcfce7;border-color:#a5dcb4;color:#166534}
+.design-list-frame .design-compact-table .design-status-working{background-color:#dbeafe;border-color:#a6c7ee;color:#1d4ed8}
+.design-list-frame .design-compact-table .design-status-review{background-color:#fef3c7;border-color:#e6cd7c;color:#854d0e}
+.design-list-frame .design-compact-table .design-status-revision{background-color:#ffedd5;border-color:#edbd92;color:#9a3412}
+.design-list-frame .design-compact-table .design-status-new{background-color:#ede9fe;border-color:#c9bcf0;color:#6d28d9}
+.design-list-frame .design-compact-table .design-status-canceled{background-color:#e5e7eb;border-color:#c1c8d0;color:#4b5563}
+@container design-list (min-width:1051px){
+ .design-list-frame .design-compact-table th+th,.design-list-frame .design-compact-table td+td{border-left:1px solid #dce9e1}
+ .design-list-frame .design-compact-table th{padding-top:14px;padding-bottom:14px}
+}

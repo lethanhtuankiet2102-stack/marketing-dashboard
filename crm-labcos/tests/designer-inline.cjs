@@ -1,0 +1,27 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict'),ts=require('typescript');
+const root=require('path').resolve(__dirname,'..')+'/';
+function mod(file,mocks){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(root+file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,require:n=>mocks[n]||require(n),Error,Response,Request,URL,Intl,Date,structuredClone,Buffer,process});return exports;}
+const model=mod('app/designer-model.ts',{}),ordersModel=mod('app/design-orders-model.ts',{'./designer-model':model}),options=mod('app/designer-options.ts',{});
+const workspace=mod('lib/designer-workspace.ts',{'../app/designer-model':model,'../app/design-orders-model':ordersModel});
+let actor={role:'designer'};
+let stored={schemaVersion:1,sourceName:'Sheet',importedAt:'2026-10-23',levels:['L1','L2','L3','L4','L5'].map((id,index)=>({id,points:[1,2,4,7,10][index]})),taskDefaults:{Banner:'L1',Poster:'L3'},items:[{id:'sheet-1',sheetRow:9,period:'2026-10',number:'1',name:'Sheet task',platform:'Facebook',briefUrl:'',taskType:'Banner',briefBy:'Team',briefDate:'23/10/2026',deadline:'',status:'GẤP',sourceLevel:null,levelOverride:null,note:'',finalUrl:'',updatedAt:null}]};
+const privateStore={readPrivate:async(path,fallback)=>path.includes('design-orders.json')?[]:structuredClone(stored),updatePrivate:async(path,fn)=>{const next=fn(structuredClone(stored));stored=next;return next;}};
+const route=mod('app/api/designer/route.ts',{'../../../lib/designer-workspace':workspace,'../../design-orders-model':ordersModel,'../../../lib/designer-sync':{refreshDesigner:async()=>structuredClone(stored)},'../../../lib/google-source':{syncWarning:()=>''},'../../chatgpt-auth':{getChatGPTUser:async()=>actor},'../../../lib/private-store':privateStore,'../../designer-model':model});
+const request=(changes,origin='https://crm.test')=>new Request('https://crm.test/api/designer',{method:'PATCH',headers:{origin},body:JSON.stringify({id:'sheet-1',expectedUpdatedAt:stored.items[0].updatedAt,...changes})});
+function cells(values){return values.map(formattedValue=>({formattedValue}));}
+function sheets(insertBlank=false){const brief=Array.from({length:8},()=>({values:[]}));brief[7]={values:cells(['THÁNG 10/2026'])};if(insertBlank)brief.push({values:[]});brief.push({values:cells(['1','Facebook','Sheet task','','Banner','Team','23/10/2026','','GẤP','','',''])});const config=stored.levels.map((level,index)=>({values:cells([index?'':'Banner',index?'':'L1','','','','',level.id,'','','',String(level.points),''])}));config.push({values:cells(['Poster','L3'])});return [{properties:{title:'BRIEF DESIGN'},data:[{rowData:brief}]},{properties:{title:'KPI CONFIG 2026'},data:[{rowData:config}]}];}
+(async()=>{
+ assert.equal(options.designerStatusTone('GẤP'),'urgent');assert.equal(options.designerStatusTone('URGENT'),'urgent');assert.equal(options.designerStatusTone('Gấp'),'urgent');assert.notDeepEqual(options.designerTypeStyle('Banner'),options.designerTypeStyle('Poster'));
+ let response=await route.PATCH(request({taskType:'Poster',status:'DONE'}));assert.equal(response.status,200);let payload=await response.json();assert.equal(payload.items[0].taskType,'Poster');assert.equal(payload.items[0].status,'DONE');assert.equal(payload.items[0].workloadPoints,4);assert.equal(model.designSummary(payload.items,payload).done,1);
+ assert.equal(stored.items[0].taskType,'Banner');assert.equal(stored.items[0].status,'GẤP');assert.equal(stored.items[0].taskTypeOverride,'Poster');assert.equal(stored.items[0].statusOverride,'DONE');
+ const sync=mod('lib/designer-sync.ts',{'./google-source':{},'./private-store':privateStore});stored=sync.parseDesignerSheets(sheets(true),stored,new Date('2026-10-23T05:00:00Z'));
+ assert.equal(stored.items[0].id,'sheet-1');assert.equal(stored.items[0].sheetRow,10);assert.equal(stored.items[0].taskTypeOverride,'Poster');assert.equal(stored.items[0].statusOverride,'DONE');assert.equal(workspace.composeDesignerWorkspace(stored,[],'designer').items[0].workloadPoints,4);
+ const before=JSON.stringify(stored);assert.equal((await route.PATCH(request({taskType:'Forged category'}))).status,400);assert.equal((await route.PATCH(request({status:'Forged status'}))).status,400);assert.equal(JSON.stringify(stored),before);
+ assert.equal((await route.PATCH(request({status:'URGENT',expectedUpdatedAt:null}))).status,409);
+ assert.equal((await route.PATCH(request({status:'URGENT'},'https://evil.test'))).status,403);
+ response=await route.PATCH(request({taskType:null,status:null}));assert.equal(response.status,200);payload=await response.json();assert.equal(payload.items[0].taskType,'Banner');assert.equal(payload.items[0].status,'GẤP');assert.equal(payload.items[0].workloadPoints,1);
+ for(const role of ['order','viewer']){actor={role};assert.equal((await route.PATCH(request({status:'URGENT'}))).status,403);}
+ actor={role:'manager'};assert.equal((await route.PATCH(request({status:'URGENT'}))).status,200);
+ assert.equal(ordersModel.validateOrder({...ordersModel.blankOrder,name:'Urgent order',platform:'Facebook',taskType:'Banner',brief:'Brief',status:'URGENT'}).status,'URGENT');
+ console.log('PASS: inline type/status edits, urgent color aliases, KPI recalculation, overrides surviving Sheet sync/row insertion, reset to source, conflicts and role/origin validation.');
+})().catch(error=>{console.error(error);process.exit(1)});
