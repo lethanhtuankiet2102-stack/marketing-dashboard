@@ -7,7 +7,7 @@
     "build": "pnpm run test:designer && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test:designer": "node tests/design-orders.cjs && node tests/manager-role.cjs && node tests/unified-designer.cjs && node tests/designer-inline.cjs"
+    "test:designer": "node tests/design-orders.cjs && node tests/manager-role.cjs && node tests/unified-designer.cjs && node tests/designer-inline.cjs && node tests/designer-filters.cjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.0.0",

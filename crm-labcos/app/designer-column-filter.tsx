@@ -1,0 +1,32 @@
+'use client';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
+import {createPortal} from 'react-dom';
+import {Filter,X} from 'lucide-react';
+import {designerFilterActive,normalizeDesignerText,type DesignerColumnFilter,type DesignerFilterColumn} from './designer-filters';
+type Props={column:DesignerFilterColumn;value?:DesignerColumnFilter;onChange:(filter:DesignerColumnFilter|undefined)=>void;toolbar?:boolean};
+export default function DesignerColumnFilter({column,value,onChange,toolbar=false}:Props){
+ const [open,setOpen]=useState(false),[search,setSearch]=useState(''),[position,setPosition]=useState({top:0,left:0});
+ const button=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null),filter=value||{},active=designerFilterActive(value);
+ function close(focus=false){setOpen(false);if(focus)button.current?.focus();}
+ useEffect(()=>{
+  if(!open)return;
+  const outside=(event:PointerEvent)=>{const target=event.target as Node;if(!panel.current?.contains(target)&&!button.current?.contains(target))setOpen(false)};
+  const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.preventDefault();setOpen(false);button.current?.focus()}};
+  const scroll=(event:Event)=>{if(!panel.current?.contains(event.target as Node))setOpen(false)};
+  const resize=()=>setOpen(false);
+  document.addEventListener('pointerdown',outside);document.addEventListener('keydown',escape);window.addEventListener('scroll',scroll,true);window.addEventListener('resize',resize);
+  panel.current?.querySelector<HTMLInputElement>('input,select')?.focus({preventScroll:true});
+  return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',escape);window.removeEventListener('scroll',scroll,true);window.removeEventListener('resize',resize)};
+ },[open]);
+ useLayoutEffect(()=>{if(!open||!button.current)return;const rect=button.current.getBoundingClientRect(),width=Math.min(288,window.innerWidth-24),height=Math.min(440,window.innerHeight-24);setPosition({left:Math.max(12,Math.min(rect.left,window.innerWidth-width-12)),top:Math.max(12,Math.min(rect.bottom+6,window.innerHeight-height-12))});},[open,value]);
+ const update=(patch:Partial<DesignerColumnFilter>)=>onChange({...filter,...patch});
+ const options=(column.options||[]).filter(option=>normalizeDesignerText(option.label).includes(normalizeDesignerText(search)));
+ return <><button ref={button} type="button" className={`designer-filter-trigger ${toolbar?'toolbar':''} ${active?'is-filtered':''}`} aria-label={`Lọc cột ${column.label}${active?' · đang áp dụng':''}`} aria-haspopup="dialog" aria-expanded={open} onClick={()=>{if(open){close();return}const rect=button.current!.getBoundingClientRect(),width=Math.min(288,window.innerWidth-24),height=Math.min(440,window.innerHeight-24);setPosition({left:Math.max(12,Math.min(rect.left,window.innerWidth-width-12)),top:Math.max(12,Math.min(rect.bottom+6,window.innerHeight-height-12))});setSearch('');setOpen(true)}}><span>{column.label}</span><Filter size={12} aria-hidden="true"/>{active&&<i aria-hidden="true"/>}</button>
+ {open&&createPortal(<div ref={panel} className="designer-filter-popover" role="dialog" aria-label={`Bộ lọc ${column.label}`} style={position}><div className="designer-filter-title"><strong>Lọc {column.label}</strong><button type="button" aria-label="Đóng bộ lọc" onClick={()=>close(true)}><X size={16}/></button></div>
+ {(column.kind==='task'||column.kind==='text')&&<label className="designer-filter-field">Tìm nội dung<input aria-label={`Tìm nội dung ${column.label}`} value={filter.query||''} onChange={event=>update({query:event.target.value})} placeholder={column.kind==='task'?'Tên task hoặc nền tảng…':'Nhập từ khóa…'}/></label>}
+ {column.kind==='task'&&<label className="designer-filter-field">Nguồn task<select aria-label="Nguồn task trong bộ lọc cột" value={filter.origin||''} onChange={event=>update({origin:event.target.value})}><option value="">Tất cả nguồn</option><option value="crm">Order CRM</option><option value="sheet">Task Sheet</option></select></label>}
+ {column.kind==='date'&&<><div className="designer-filter-range"><label>Từ ngày<input type="date" aria-label={`Từ ngày ${column.label}`} disabled={filter.missingOnly} value={filter.from||''} onChange={event=>update({from:event.target.value})}/></label><label>Đến ngày<input type="date" aria-label={`Đến ngày ${column.label}`} disabled={filter.missingOnly} value={filter.to||''} onChange={event=>update({to:event.target.value})}/></label></div><label className="designer-filter-option"><input type="checkbox" checked={!!filter.missingOnly} onChange={event=>update({missingOnly:event.target.checked,from:'',to:''})}/>Chưa có ngày</label></>}
+ {column.kind==='number'&&<><div className="designer-filter-range"><label>Từ điểm<input type="number" min="0" step="any" aria-label="Từ workload point" disabled={filter.missingOnly} value={filter.min||''} onChange={event=>update({min:event.target.value})}/></label><label>Đến điểm<input type="number" min="0" step="any" aria-label="Đến workload point" disabled={filter.missingOnly} value={filter.max||''} onChange={event=>update({max:event.target.value})}/></label></div><label className="designer-filter-option"><input type="checkbox" checked={!!filter.missingOnly} onChange={event=>update({missingOnly:event.target.checked,min:'',max:''})}/>Chưa chấm điểm</label></>}
+ {!!column.options?.length&&<><label className="designer-filter-field"><span>{column.kind==='task'?'Nền tảng':'Giá trị'} · chọn nhiều</span>{column.options.length>6&&<input aria-label={`Tìm giá trị ${column.label}`} value={search} onChange={event=>setSearch(event.target.value)} placeholder="Tìm giá trị…"/>}</label><p className="designer-filter-hint">Bỏ hết lựa chọn để xem tất cả.</p><div className="designer-filter-options">{options.map(option=><label className="designer-filter-option" key={option.value}><input type="checkbox" checked={filter.values?.includes(option.value)||false} onChange={event=>update({values:event.target.checked?[...(filter.values||[]),option.value]:(filter.values||[]).filter(current=>current!==option.value)})}/><span>{option.label}</span></label>)}{!options.length&&<p>Không có giá trị phù hợp.</p>}</div></>}
+ <div className="designer-filter-footer"><button type="button" className="button outline" disabled={!active} onClick={()=>onChange(undefined)}>Xóa lọc</button><button type="button" className="button primary" onClick={()=>close(true)}>Xong</button></div></div>,document.body)}</>;
+}
