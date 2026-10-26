@@ -8,7 +8,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test:designer": "node tests/design-orders.cjs && node tests/manager-role.cjs && node tests/unified-designer.cjs && node tests/designer-inline.cjs && node tests/designer-filters.cjs",
-    "test:google-ads": "node tests/google-ads-reports.cjs"
+    "test:google-ads": "node tests/google-ads-reports.cjs && node tests/google-ads-summary.cjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.0.0",

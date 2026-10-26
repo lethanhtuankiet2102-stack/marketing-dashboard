@@ -1,6 +1,6 @@
 import {googleGet} from './google-source';
 import {readPrivate,writePrivate} from './private-store';
-const sources:Record<string,string>={'2026-07':'1Ty2IgpheFoQmgcvApFFmKy3IM3FSFIhn','2026-08':'1rqSPizX300tzuZkD9G1yQRosUqzcJPJR','2026-09':'1sReRZl5jxL-5zWG7RJZUOaz6AuiCUD4c'};
+export const sources:Record<string,string>={'2026-07':'1Ty2IgpheFoQmgcvApFFmKy3IM3FSFIhn','2026-08':'1rqSPizX300tzuZkD9G1yQRosUqzcJPJR','2026-09':'1sReRZl5jxL-5zWG7RJZUOaz6AuiCUD4c'};
 type SourceCache={fileId:string;syncedAt:number};
 export async function googleAdsReport(month:string){
  const fileId=sources[month];if(!fileId)throw new Error('UNKNOWN_MONTH');
