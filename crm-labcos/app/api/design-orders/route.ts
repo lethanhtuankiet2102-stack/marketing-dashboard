@@ -22,14 +22,15 @@ async function save(request:Request,editing:boolean){
   if(fields.level&&!data.levels.some(l=>l.id===fields.level))throw new Error('INPUT');
   if(typeof input.id!=='string'||!/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(input.id)||editing&&typeof input.revision!=='string')throw new Error('INPUT');
   const at=new Date().toISOString(),revision=randomUUID();
+  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(at));
   const orders=await transactPrivate<DesignOrder[]>(path,[],current=>{
    const previous=current.find(o=>o.id===input.id);
-   if(editing){if(!previous)throw new Error('NOT_FOUND');if(previous.revision!==input.revision)throw new Error('CONFLICT');const changed=Object.keys(fields).filter(key=>fields[key as keyof typeof fields]!==previous[key as keyof typeof fields]);Object.assign(previous,fields,{revision,updatedAt:at,history:[...previous.history,{at,by:user.email,fields:changed}]});}
-   else{if(previous){if(previous.createdBy!==user.email)throw new Error('CONFLICT');return current;}current.push({...fields,id:input.id,number:Math.max(0,...current.map(o=>o.number))+1,revision,createdAt:at,updatedAt:at,briefDate:new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(at)),briefBy:user.displayName||user.email,createdBy:user.email,history:[{at,by:user.email,fields:['created']}]});}
+   if(editing){if(!previous)throw new Error('NOT_FOUND');if(previous.revision!==input.revision)throw new Error('CONFLICT');const nextFields={...fields,briefDate:fields.briefDate||previous.briefDate||today};const changed=Object.keys(nextFields).filter(key=>nextFields[key as keyof typeof nextFields]!==previous[key as keyof typeof nextFields]);Object.assign(previous,nextFields,{revision,updatedAt:at,history:[...previous.history,{at,by:user.email,fields:changed}]});}
+   else{if(previous){if(previous.createdBy!==user.email)throw new Error('CONFLICT');return current;}current.push({...fields,id:input.id,number:Math.max(0,...current.map(o=>o.number))+1,revision,createdAt:at,updatedAt:at,briefDate:fields.briefDate||today,briefBy:user.displayName||user.email,createdBy:user.email,history:[{at,by:user.email,fields:['created']}]});}
    return current;
   });
   return Response.json({order:scoreOrder(orders.find(o=>o.id===input.id)!,data)},{status:editing?200:201,headers});
- }catch(error){const message=error instanceof Error?error.message:'';const status=message==='INPUT'?400:message==='NOT_FOUND'?404:message==='CONFLICT'?409:503;return Response.json({error:status===400?'Kiểm tra tên, nền tảng, phân loại, brief, deadline và đường dẫn.':status===409?'Đơn vừa được người khác sửa. Nội dung đang nhập vẫn được giữ; mở lại đơn để xem bản mới trước khi lưu.':status===404?'Không tìm thấy đơn.':'Chưa lưu được đơn. Hãy thử lại.'},{status,headers});}
+ }catch(error){const message=error instanceof Error?error.message:'';const status=message==='INPUT'?400:message==='NOT_FOUND'?404:message==='CONFLICT'?409:503;return Response.json({error:status===400?'Kiểm tra tên, nền tảng, phân loại, brief, ngày brief, deadline và đường dẫn.':status===409?'Đơn vừa được người khác sửa. Nội dung đang nhập vẫn được giữ; mở lại đơn để xem bản mới trước khi lưu.':status===404?'Không tìm thấy đơn.':'Chưa lưu được đơn. Hãy thử lại.'},{status,headers});}
 }
 export const POST=(request:Request)=>save(request,false);
 export const PATCH=(request:Request)=>save(request,true);
