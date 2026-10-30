@@ -1,4 +1,4 @@
-import { dashboardRole, requireAdminWrite } from '../../roles';
+import { dashboardRole } from '../../roles';
 import { readPrivate, writePrivate } from '../../../lib/private-store';
 
 export const dynamic='force-dynamic';
@@ -28,19 +28,23 @@ function fields(input:Record<string,unknown>) {
   return null;
 }
 export async function GET() {
-  const role=await dashboardRole();if(!role)return Response.json({error:'Cần đăng nhập.'},{status:401});
-  try {const data=await readPrivate(path,empty);return Response.json({...data,role},{headers:{'Cache-Control':'private, no-store'}})}catch(e){console.error('Dashboard read failed',e);return error()}
+  const role=await dashboardRole(true);if(!role)return Response.json({error:'Cần đăng nhập.'},{status:401});
+  if(role==='order')return Response.json({error:'Không có quyền truy cập.'},{status:403});
+  try {const data=await readPrivate(path,empty);return Response.json({leads:data.leads,content:role==='sale_oem'?[]:data.content,role},{headers:{'Cache-Control':'private, no-store'}})}catch(e){console.error('Dashboard read failed',e);return error()}
 }
 export async function POST(request:Request) { return mutate(request,'POST'); }
 export async function PATCH(request:Request) { return mutate(request,'PATCH'); }
 export async function DELETE(request:Request) { return mutate(request,'DELETE'); }
 async function mutate(request:Request,method:'POST'|'PATCH'|'DELETE') {
-  const denied=await requireAdminWrite();if(denied)return denied;
+  const role=await dashboardRole(true);
+  if(!role)return Response.json({error:'Cần đăng nhập.'},{status:401});
+  if(!['owner','manager','sale_admin','sale_oem'].includes(role))return Response.json({error:'Tài khoản chỉ có quyền xem.'},{status:403});
   if(!validWrite(request))return Response.json({error:'Yêu cầu không hợp lệ.'},{status:403});
   try {
     const input=await request.json() as Record<string,unknown>;
     const collection=input.kind==='lead'?'leads':input.kind==='content'?'content':null;
     if(!collection)return Response.json({error:'Loại dữ liệu không hợp lệ.'},{status:400});
+    if(role==='sale_oem'&&collection!=='leads')return Response.json({error:'Sale OEM chỉ được chỉnh sửa khách hàng và lead.'},{status:403});
     const data=await readPrivate(path,empty);
     const rows=data[collection],id=method==='POST'?crypto.randomUUID():str(input.id,80),index=rows.findIndex(row=>row.id===id);
     if(method!=='POST'&&index<0)return Response.json({error:'Không tìm thấy bản ghi.'},{status:404});
@@ -55,4 +59,5 @@ async function mutate(request:Request,method:'POST'|'PATCH'|'DELETE') {
     return Response.json(method==='POST'?{id}:{ok:true},{status:method==='POST'?201:200});
   }catch(e){console.error('Dashboard write failed',e);return error()}
 }
+
 
