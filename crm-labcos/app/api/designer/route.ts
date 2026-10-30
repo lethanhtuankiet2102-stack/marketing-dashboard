@@ -24,7 +24,7 @@ export async function GET(){
 export async function PATCH(request:Request){
   const user=await getChatGPTUser(true);
   if(!user)return Response.json({error:'Cần đăng nhập.'},{status:401,headers});
-  if(!['owner','manager','designer'].includes(user.role))return Response.json({error:'Tài khoản chỉ có quyền xem.'},{status:403,headers});
+  if(!['owner','manager','sale_admin','designer'].includes(user.role))return Response.json({error:'Tài khoản chỉ có quyền xem.'},{status:403,headers});
   if(request.headers.get('origin')!==new URL(request.url).origin)return Response.json({error:'Yêu cầu không hợp lệ.'},{status:403,headers});
   let input:{id?:string;level?:string|null;taskType?:string|null;status?:string|null;expectedUpdatedAt?:string|null};
   try{input=await request.json()}catch{return Response.json({error:'Yêu cầu không hợp lệ.'},{status:400,headers});}
@@ -58,3 +58,4 @@ export async function PATCH(request:Request){
     return Response.json({error:'Chưa lưu được task. Hãy thử lại.'},{status:503,headers});
   }
 }
+

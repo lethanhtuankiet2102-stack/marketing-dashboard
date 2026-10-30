@@ -8,7 +8,9 @@ type RecordLead={date:string;source:string;quality:boolean};
 type Report={fromDate:string;throughDate:string;people:{records:RecordLead[]}[]};
 
 export async function GET(request:Request) {
-  if (!await getChatGPTUser()) return Response.json({error:'Cần đăng nhập.'},{status:401,headers:{'Cache-Control':'no-store'}});
+  const user=await getChatGPTUser(true);
+  if (!user) return Response.json({error:'Cần đăng nhập.'},{status:401,headers:{'Cache-Control':'no-store'}});
+  if(user.role==='order')return Response.json({error:'Không có quyền truy cập mục Sale.'},{status:403});
   const params=new URL(request.url).searchParams;
   const since=params.get('since')||'';
   const until=params.get('until')||'';
@@ -22,3 +24,4 @@ export async function GET(request:Request) {
   const rows=covered?report.people.flatMap(person=>person.records).filter(item=>item.date>=since&&item.date<=until&&(channel==='facebook'?item.source.trim().toLowerCase()==='facebook':item.source.trim().toLowerCase().startsWith('google'))):[];
   return Response.json({covered,leads:rows.length,qualityLeads:rows.filter(item=>item.quality).length,sourceThroughDate:report.throughDate},{headers:{'Cache-Control':'private, no-store'}});
 }
+

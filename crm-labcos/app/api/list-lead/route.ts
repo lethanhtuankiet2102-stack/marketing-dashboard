@@ -13,9 +13,11 @@ const headers={'Cache-Control':'private, no-store'};
 
 
 export async function GET() {
-  if (!await getChatGPTUser()) {
+  const user=await getChatGPTUser(true);
+  if (!user) {
     return Response.json({ error: 'Cần đăng nhập để xem List Lead.' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
   }
+  if(user.role==='order')return Response.json({error:'Không có quyền truy cập mục Sale.'},{status:403,headers:{'Cache-Control':'private, no-store'}});
   const saved=await readPrivate<Stored|null>(cachePath,null).catch(()=>null);
   if(saved?.mode!=='upload'&&saved?.lastSyncedAt&&Date.now()-Date.parse(saved.lastSyncedAt)<60000)return Response.json({...saved,live:true,manual:false,warning:null},{headers});
   try {
@@ -33,7 +35,7 @@ export async function GET() {
 export async function POST(request:Request) {
   const user=await getChatGPTUser();
   if(!user)return Response.json({error:'Cần đăng nhập.'},{status:401,headers});
-  if(!['owner','manager'].includes(user.role))return Response.json({error:'Chỉ quản trị viên được cập nhật List Lead.'},{status:403,headers});
+  if(!['owner','manager','sale_admin'].includes(user.role))return Response.json({error:'Chỉ quản trị viên được cập nhật List Lead.'},{status:403,headers});
   if(request.headers.get('origin')!==new URL(request.url).origin)return Response.json({error:'Yêu cầu không hợp lệ.'},{status:403,headers});
   if(Number(request.headers.get('content-length')||0)>4_000_000)return Response.json({error:'File phải nhỏ hơn 4 MB.'},{status:413,headers});
   let records:Stored;
@@ -54,3 +56,4 @@ export async function POST(request:Request) {
     return Response.json({...records,live:false,manual:true,warning:null},{headers});
   } catch {return Response.json({error:'Chưa lưu được dữ liệu. Hãy thử lại; bản cũ vẫn được giữ.'},{status:503,headers});}
 }
+

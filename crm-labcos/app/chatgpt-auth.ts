@@ -2,8 +2,9 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { readPrivate } from '../lib/private-store';
+import type {AccountRole,UserRole} from './access-policy';
 
-export type ChatGPTUser = { userId:string; displayName:string; email:string; fullName:string|null; role:'owner'|'viewer'|'designer'|'order'|'manager' };
+export type ChatGPTUser = { userId:string; displayName:string; email:string; fullName:string|null; role:UserRole };
 const cookieName='labcos-session';
 
 function secret() {
@@ -25,21 +26,22 @@ export function verifySession(token:string|undefined):ChatGPTUser|null {
     const actual=Buffer.from(signature);
     if (actual.length!==expected.length||!timingSafeEqual(actual,expected)) return null;
     const parsed=JSON.parse(Buffer.from(payload,'base64url').toString('utf8')) as {user:ChatGPTUser;expires:number};
-    if (parsed.expires<Date.now()||!['owner','viewer','designer','order','manager'].includes(parsed.user?.role)||!parsed.user.email) return null;
+    if (parsed.expires<Date.now()||!['owner','viewer','designer','order','manager','sale_admin','sale_oem'].includes(parsed.user?.role)||!parsed.user.email) return null;
     return parsed.user;
   } catch { return null; }
 }
-export async function getChatGPTUser(allowOrder=false) {
+export async function getChatGPTUser(allowLimited=false) {
   const user=verifySession((await cookies()).get(cookieName)?.value);
   if(user&&user.role!=='owner') {
     try {
-      const viewers=await readPrivate<{email:string;role?:'viewer'|'designer'|'order'|'manager'}[]>('labcos/viewers.json',[]);
+      const viewers=await readPrivate<{email:string;role?:AccountRole}[]>('labcos/viewers.json',[]);
       const account=viewers.find(viewer=>viewer.email===user.email);
       if(!account)return null;
-      user.role=account.role==='designer'?'designer':account.role==='order'?'order':account.role==='manager'?'manager':'viewer';
+      user.role=account.role==='designer'?'designer':account.role==='order'?'order':account.role==='manager'?'manager':account.role==='sale_admin'?'sale_admin':account.role==='sale_oem'?'sale_oem':'viewer';
     } catch {return null}
   }
-  return user?.role==='order'&&!allowOrder?null:user;
+  // Limited workspaces must explicitly opt in; report/marketing routes stay denied by default.
+  return user&&['order','sale_oem'].includes(user.role)&&!allowLimited?null:user;
 }
 export async function requireChatGPTUser(returnTo:string):Promise<ChatGPTUser> {
   const user=await getChatGPTUser(true);
@@ -50,4 +52,5 @@ export function chatGPTSignInPath(returnTo:string) { return `/login?return_to=${
 export function chatGPTSignOutPath() { return '/api/auth/logout'; }
 export function safePath(path:string) { return path.startsWith('/')&&!path.startsWith('//')&&!path.startsWith('/api/')?path:'/'; }
 export const sessionCookie=cookieName;
+
 

@@ -4,7 +4,7 @@ import {readPrivate,transactPrivate} from '../../../lib/private-store';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const path='labcos/viewers.json',headers={'Cache-Control':'private, no-store'};
-const accountRoles=['viewer','designer','order','manager'] as const;
+const accountRoles=['viewer','designer','order','sale_admin','sale_oem','manager'] as const;
 type AccountRole=typeof accountRoles[number];
 type Account={email:string;passwordHash:string;displayName:string;role?:AccountRole};
 function isAdmin(user:ChatGPTUser|null):user is ChatGPTUser{return !!user&&['owner','manager'].includes(user.role);}
@@ -65,3 +65,4 @@ export async function DELETE(request:Request){
   return Response.json({ok:true},{headers});
  }catch(error){return failure(error)}
 }
+

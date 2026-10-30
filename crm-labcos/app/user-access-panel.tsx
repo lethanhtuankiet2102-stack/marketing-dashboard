@@ -1,8 +1,8 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
-type AccountRole='viewer'|'designer'|'order'|'manager';
+import type {AccountRole} from './access-policy';
 type User={email:string;displayName:string;role:AccountRole;canManage:boolean};
-const labels:Record<AccountRole,string>={viewer:'Chỉ xem',designer:'Designer',order:'Order',manager:'Trưởng bộ phận'};
+const labels:Record<AccountRole,string>={viewer:'Chỉ xem',designer:'Designer',order:'Order',manager:'Trưởng bộ phận',sale_admin:'Sale Admin',sale_oem:'Sale OEM'};
 export default function UserAccessPanel(){
  const [users,setUsers]=useState<User[]>([]),[email,setEmail]=useState(''),[name,setName]=useState(''),[password,setPassword]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[role,setRole]=useState<AccountRole>('viewer'),[canGrantManager,setCanGrantManager]=useState(false),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false);
  const load=useCallback(async()=>{try{const response=await fetch('/api/users',{cache:'no-store'}),result=await response.json();if(!response.ok)throw new Error(result.error||'Không tải được tài khoản.');setUsers(result.users);setCanGrantManager(result.canGrantManager===true);}catch(e){setError(e instanceof Error?e.message:'Không tải được tài khoản.');}finally{setLoading(false)}},[]);
@@ -11,9 +11,10 @@ export default function UserAccessPanel(){
   setSaving(true);setError('');setNotice('');
   try{const response=await fetch('/api/users',{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(input)}),result=await response.json();if(!response.ok)throw new Error(result.error||'Chưa lưu được thay đổi.');setNotice(method==='POST'?'Đã tạo tài khoản. Gửi thông tin đăng nhập qua kênh riêng.':method==='DELETE'?'Đã thu hồi tài khoản.':'Đã cập nhật quyền.');if(method==='POST'){setEmail('');setName('');setPassword('');}await load();}catch(e){setError(e instanceof Error?e.message:'Chưa lưu được thay đổi.');}finally{setSaving(false)}
  }
- const availableRoles:AccountRole[]=canGrantManager?['viewer','designer','order','manager']:['viewer','designer','order'];
+ const availableRoles:AccountRole[]=canGrantManager?['viewer','designer','order','sale_admin','sale_oem','manager']:['viewer','designer','order','sale_admin','sale_oem'];
  return <><div className="page-heading"><div><p className="eyebrow">KHÔNG GIAN LÀM VIỆC / QUYỀN TRUY CẬP</p><h1>Người dùng</h1></div></div>
  {error&&<p role="alert" className="alert error">{error}</p>}{notice&&<p role="status" className="alert success">{notice}</p>}
  <section className="panel access-panel"><h2>Cấp tài khoản</h2><form onSubmit={event=>{event.preventDefault();void mutate('POST',{email,displayName:name,password,role})}}><label>Email<input type="email" required maxLength={254} disabled={saving||loading} value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Tên hiển thị<input maxLength={80} disabled={saving||loading} value={name} onChange={e=>setName(e.target.value)}/></label><label>Mật khẩu ban đầu<input type="password" required minLength={12} maxLength={128} disabled={saving||loading} value={password} onChange={e=>setPassword(e.target.value)}/></label><label>Quyền<select disabled={saving||loading} value={role} onChange={e=>setRole(e.target.value as AccountRole)}>{availableRoles.map(r=><option key={r} value={r}>{labels[r]}</option>)}</select></label><button className="button primary" disabled={saving||loading}>{saving?'Đang lưu…':'Tạo tài khoản'}</button></form></section>
  <section className="panel access-panel"><h2>Tài khoản đã cấp</h2>{users.map(user=><div className="access-user" key={user.email}><span><strong>{user.displayName}</strong><small>{user.email}</small></span>{user.canManage?<><select aria-label={`Quyền của ${user.email}`} disabled={saving} value={user.role} onChange={e=>void mutate('PATCH',{email:user.email,role:e.target.value})}>{availableRoles.map(r=><option key={r} value={r}>{labels[r]}</option>)}</select><button className="button outline" disabled={saving} onClick={()=>{if(window.confirm(`Thu hồi tài khoản ${user.email}?`))void mutate('DELETE',{email:user.email})}}>Thu hồi</button></>:<span className="data-note">{labels[user.role]}</span>}</div>)}{loading?<p className="data-note">Đang tải tài khoản…</p>:!users.length&&<p className="data-note">Chưa cấp tài khoản.</p>}</section></>;
 }
+
