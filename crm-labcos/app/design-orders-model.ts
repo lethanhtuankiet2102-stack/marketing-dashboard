@@ -5,6 +5,11 @@ export const orderStatusLabels:Record<string,string>={NEW:'Mới',URGENT:'Gấp'
 export type OrderFields={name:string;platform:string;taskType:string;brief:string;briefUrl:string;briefDate:string;deadline:string;status:string;level:string;note:string;finalUrl:string};
 export type DesignOrder=OrderFields&{id:string;number:number;revision:string;createdAt:string;updatedAt:string;briefBy:string;createdBy:string;history:{at:string;by:string;fields:string[]}[]};
 export const blankOrder:OrderFields={name:'',platform:'',taskType:'',brief:'',briefUrl:'',briefDate:'',deadline:'',status:'NEW',level:'',note:'',finalUrl:''};
+export function duplicateOrderFields(order:DesignOrder):OrderFields{
+ // Copy editable brief fields only; identity and audit data belong to the new order.
+ const fields=Object.fromEntries(Object.keys(blankOrder).map(key=>[key,order[key as keyof OrderFields]??blankOrder[key as keyof OrderFields]])) as OrderFields;
+ return {...fields,name:`${order.name.slice(0,230)} (Bản sao)`,briefDate:'',status:'NEW',finalUrl:''};
+}
 export function orderTask(order:DesignOrder):DesignTask{
  return {id:`order:${order.id}`,sheetRow:order.number,period:order.briefDate.slice(0,7),number:String(order.number),name:order.name,platform:order.platform,taskType:order.taskType,briefUrl:order.briefUrl,briefBy:order.briefBy,briefDate:order.briefDate,deadline:order.deadline,status:order.status,sourceLevel:order.level||null,levelOverride:null,note:order.note,finalUrl:order.finalUrl,updatedAt:order.updatedAt};
 }
