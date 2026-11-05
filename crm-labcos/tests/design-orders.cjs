@@ -16,9 +16,19 @@ const req=(body,origin='https://crm.test')=>new Request('https://crm.test/api/de
  assert.equal((await route.POST(req({...input,id:require('crypto').randomUUID(),briefUrl:'javascript:alert(1)'}))).status,400);
  assert.equal((await route.POST(req({...input,id:require('crypto').randomUUID(),deadline:'2026-02-30'}))).status,400);
  assert.equal((await route.POST(req(input,'https://evil.test'))).status,403);
+ // Editable attribution must never replace the authenticated audit identity.
+ const named={...input,id:require('crypto').randomUUID(),briefBy:'  Kiệt Lê  ',createdBy:'forged@example.com'};
+ res=await route.POST(req(named));assert.equal(res.status,201);let namedOrder=(await res.json()).order;assert.equal(namedOrder.briefBy,'Kiệt Lê');assert.equal(namedOrder.createdBy,user.email);assert.equal(namedOrder.history[0].by,user.email);
+ const originalRevision=namedOrder.revision;
+ res=await route.PATCH(req({...named,revision:namedOrder.revision,briefBy:'Chị Trinh'}));assert.equal(res.status,200);namedOrder=(await res.json()).order;assert.equal(namedOrder.briefBy,'Chị Trinh');assert.ok(namedOrder.history.at(-1).fields.includes('briefBy'));assert.equal(namedOrder.history.at(-1).by,user.email);assert.equal(namedOrder.createdBy,user.email);assert.equal(ordersModel.orderTask(namedOrder).briefBy,'Chị Trinh');
+ assert.equal((await route.PATCH(req({...named,revision:originalRevision,briefBy:'Stale edit'}))).status,409);
+ for(const omitted of [true,false]){const update={...named,revision:namedOrder.revision,briefBy:''};if(omitted)delete update.briefBy;res=await route.PATCH(req(update));assert.equal(res.status,200);namedOrder=(await res.json()).order;assert.equal(namedOrder.briefBy,'Chị Trinh');}
+ for(const briefBy of [null,123,'X'.repeat(255)])assert.equal((await route.POST(req({...input,id:require('crypto').randomUUID(),briefBy}))).status,400);
+ assert.equal(saved.find(o=>o.id===input.id).briefBy,user.displayName);
  user={...user,role:'viewer'};assert.equal((await route.POST(req(input))).status,403);assert.equal((await route.GET()).status,200);
  user=null;assert.equal((await route.GET()).status,401);
  let account={email:'order@example.com',role:'order'};let token;const auth=mod('app/chatgpt-auth.ts',{'next/headers':{cookies:async()=>({get:()=>({value:token})})},'next/navigation':{redirect:()=>{}},'../lib/private-store':{readPrivate:async()=>account?[account]:[]}});process.env.AUTH_SESSION_SECRET='test-only-secret-at-least-24-characters';token=auth.createSession({userId:'order',email:account.email,displayName:'Order',fullName:null,role:'order'});
  assert.equal(await auth.getChatGPTUser(),null);assert.equal((await auth.getChatGPTUser(true)).role,'order');account.role='viewer';assert.equal((await auth.getChatGPTUser()).role,'viewer');account=null;assert.equal(await auth.getChatGPTUser(true),null);
- console.log('PASS: atomic initialization/races, persistence, idempotency, automatic KPI points, stale edits, input validation, origin checks, role scope and revocation.');
+ console.log('PASS: atomic initialization/races, persistence, idempotency, automatic KPI points, stale edits, input validation, origin checks, role scope, editable brief names with immutable audit identity, legacy edits and revocation.');
 })().catch(e=>{console.error(e);process.exit(1)});
+

@@ -313,3 +313,6 @@ h1,h2,h3,p { margin-top:0; }
 
 /* Keep order actions inside the compact table column. */
 .designer-order-actions{display:flex;flex-direction:column;align-items:flex-start;gap:6px;max-width:100%}
+
+.designer-brief-button{border:0;border-bottom:1px dashed #90bba9;background:transparent;color:#407362;font:inherit;text-align:left;padding:3px 0;max-width:100%;overflow-wrap:anywhere;cursor:pointer}.designer-brief-button:focus-visible{outline:2px solid #358b6a;outline-offset:3px}.designer-brief-button:disabled{cursor:default;opacity:.6}
+.designer-brief-form{width:100%;min-width:0}.designer-brief-form input{width:100%;min-width:0;box-sizing:border-box;border:1px solid #abcdbb;border-radius:6px;padding:6px;font:inherit}.designer-brief-form>div{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.design-list-frame .design-compact-table .designer-brief-form .button{font-size:10px;padding:4px 6px;min-height:26px}

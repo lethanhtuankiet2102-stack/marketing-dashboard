@@ -5,8 +5,8 @@ const model=mod('app/designer-model.ts'),ordersModel=mod('app/design-orders-mode
 const source={...ordersModel.blankOrder,name:'Source design',platform:'Facebook',taskType:'Banner',brief:'Copy this brief',briefUrl:'https://example.com/brief',briefDate:'2026-09-01',deadline:'2026-11-20',status:'DONE',level:'L1',note:'Instructions',finalUrl:'https://example.com/old-final',id:require('crypto').randomUUID(),number:4,revision:'original-revision',createdAt:'2026-09-01T00:00:00Z',updatedAt:'2026-09-02T00:00:00Z',createdBy:'original@test.com',briefBy:'Original',history:[{at:'2026-09-01T00:00:00Z',by:'original@test.com',fields:['created']}]};
 const before=JSON.stringify(source),fields=ordersModel.duplicateOrderFields(source);
 for(const key of ['platform','taskType','brief','briefUrl','deadline','level','note'])assert.equal(fields[key],source[key]);
-assert.equal(fields.name,'Source design (Bản sao)');assert.equal(fields.briefDate,'');assert.equal(fields.status,'NEW');assert.equal(fields.finalUrl,'');assert.equal(JSON.stringify(source),before);
-for(const key of ['id','number','revision','createdBy','createdAt','briefBy','history'])assert.equal(Object.hasOwn(fields,key),false);
+assert.equal(fields.name,'Source design (Bản sao)');assert.equal(fields.briefDate,'');assert.equal(fields.briefBy,'');assert.equal(fields.status,'NEW');assert.equal(fields.finalUrl,'');assert.equal(JSON.stringify(source),before);
+for(const key of ['id','number','revision','createdBy','createdAt','history'])assert.equal(Object.hasOwn(fields,key),false);
 assert.ok(ordersModel.duplicateOrderFields({...source,name:'A'.repeat(240)}).name.length<=240);
 const config={levels:[{id:'L1',points:1}],taskDefaults:{Banner:'L1'},items:[]};let saved=[structuredClone(source)],writes=0,body,method,created;
 const route=mod('app/api/design-orders/route.ts',{'../../chatgpt-auth':{getChatGPTUser:async()=>({email:'copy@test.com',displayName:'Copier',role:'sale_oem'})},'../../../lib/private-store':{readPrivate:async(p,f)=>p.includes('designer.json')?config:saved,transactPrivate:async(p,f,fn)=>{writes++;saved=fn(structuredClone(saved));return saved;}},'../../design-orders-model':ordersModel});
