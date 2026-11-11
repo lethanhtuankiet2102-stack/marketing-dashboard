@@ -12,14 +12,15 @@ const cachePath='labcos/list-leads.json';
 const headers={'Cache-Control':'private, no-store'};
 
 
-export async function GET() {
+export async function GET(request?:Request) {
   const user=await getChatGPTUser(true);
   if (!user) {
     return Response.json({ error: 'Cần đăng nhập để xem List Lead.' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
   }
   if(user.role==='order')return Response.json({error:'Không có quyền truy cập mục Sale.'},{status:403,headers:{'Cache-Control':'private, no-store'}});
   const saved=await readPrivate<Stored|null>(cachePath,null).catch(()=>null);
-  if(saved?.mode!=='upload'&&saved?.lastSyncedAt&&Date.now()-Date.parse(saved.lastSyncedAt)<60000)return Response.json({...saved,live:true,manual:false,warning:null},{headers});
+  const refresh=!!request&&new URL(request.url).searchParams.get('refresh')==='1';
+  if(!refresh)return saved?Response.json({...saved,live:false,manual:saved.mode==='upload',warning:null},{headers}):Response.json({error:'Chưa có bản lưu List Lead. Bấm Cập nhật dữ liệu để lấy file nguồn.'},{status:503,headers});
   try {
     const records=parseLeadWorkbook(await leadWorkbook());
     if(!records.items.length)throw new Error('SOURCE_EMPTY');

@@ -45,11 +45,11 @@ export function parseDesignerSheets(sheets:Sheet[],previous:DesignData,now=new D
 export async function refreshDesigner(force=false){
  const current=await readPrivate<DesignData|null>('labcos/designer.json',null);
  if(!current)throw new Error('SOURCE_CACHE_MISSING');
- const synced=(current as DesignData&{lastSyncedAt?:string}).lastSyncedAt;
- if(!force&&synced&&Date.now()-Date.parse(synced)<60000)return current;
+ if(!force)return current;
  const target=new URL(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sourceIds.designer)}`);
  target.searchParams.append('ranges',"'BRIEF DESIGN'!A1:M10000");target.searchParams.append('ranges',"'KPI CONFIG 2026'!A1:L2000");target.searchParams.set('includeGridData','true');target.searchParams.set('fields','sheets(properties(title),data(startRow,rowData(values(formattedValue,hyperlink))))');
  const {sheets}=await (await googleGet(target.toString())).json() as {sheets:Sheet[]};
  for(let attempt=0;attempt<3;attempt++){try{return await updatePrivate<DesignData>('labcos/designer.json',previous=>parseDesignerSheets(sheets,previous));}catch(e){if(!(e instanceof Error&&e.name==='BlobPreconditionFailedError')||attempt===2)throw e;}}
  throw new Error('SYNC_CONFLICT');
 }
+

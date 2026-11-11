@@ -23,25 +23,19 @@ export default function ListLeadPanel(_props:{canEdit?:boolean}) {
   const [query,setQuery] = useState('');
   const [page,setPage] = useState(1);
   const busy=useRef(false);
-  async function refresh() {
+  async function refresh(force=false) {
     if(busy.current)return;
     busy.current=true;
     setRefreshing(true);
     try {
-      const response=await fetch('/api/list-lead',{cache:'no-store'});
+      const response=await fetch('/api/list-lead'+(force?'?refresh=1':''),{cache:'no-store'});
       const result=await response.json() as Payload;
       if (!response.ok) throw new Error(result.error || 'Không tải được List Lead.');
       setData(result);setError('');
     } catch (e) {setError(e instanceof Error?e.message:'Không tải được List Lead.');}
     finally {busy.current=false;setRefreshing(false);}
   }
-  useEffect(()=>{
-    void refresh();
-    const timer=window.setInterval(()=>{if(!document.hidden)void refresh()},60000);
-    const onFocus=()=>void refresh();
-    window.addEventListener('focus',onFocus);
-    return ()=>{window.clearInterval(timer);window.removeEventListener('focus',onFocus)};
-  },[]);
+  useEffect(()=>{void refresh()},[]);
 
   const rows = useMemo(()=>data?.items.filter(item=>
     (month==='all'||item.date.startsWith(month)) &&
@@ -78,14 +72,14 @@ export default function ListLeadPanel(_props:{canEdit?:boolean}) {
   }
 
   return <>
-    <GoogleSyncStatus/><div className="page-heading"><div><p className="eyebrow">KHÔNG GIAN LÀM VIỆC / DỮ LIỆU SHEET</p><h1>List Lead</h1><p>Danh sách lead từ sheet “LEAD LIST”, bắt đầu từ 01/07/2026.</p></div></div>
+    <GoogleSyncStatus/><div className="page-heading"><div><p className="eyebrow">KHÔNG GIAN LÀM VIỆC / DỮ LIỆU SHEET</p><h1>List Lead</h1><p>Danh sách lead từ sheet “LEAD LIST”, bắt đầu từ 01/07/2026.</p></div><button className="button outline" type="button" onClick={()=>void refresh(true)} disabled={refreshing}><RefreshCw size={15} className={refreshing?'spin':''}/>{refreshing?'Đang cập nhật…':'Cập nhật dữ liệu'}</button></div>
     {error&&<div className="alert error" role="alert">{error}</div>}
     {!data&&!error&&<div className="loading-state">Đang tải List Lead…</div>}
     {data&&<>
       <div className="list-lead-period" role="group" aria-label="Lọc theo tháng">
         {[['all','Từ tháng 7'],...months.map(key=>[key,monthLabel(key)])].map(([key,label])=><button key={key} className={month===key?'selected':''} onClick={()=>changeFilters(()=>setMonth(key))}>{label}</button>)}
       </div>
-      <div className={data.live||data.manual?'data-note':'alert error'} role={data.live||data.manual?undefined:'alert'}>{data.manual?`Đã cập nhật từ ${data.fileName||'Excel'}${data.lastSyncedAt?` lúc ${new Date(data.lastSyncedAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}`:''}.`:data.live&&data.lastSyncedAt?`Đã đồng bộ file nguồn lúc ${new Date(data.lastSyncedAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}. Tự kiểm tra mỗi phút khi trang đang mở.`:data.warning} <button className="button outline" type="button" onClick={()=>void refresh()} disabled={refreshing}><RefreshCw size={15} className={refreshing?'spin':''}/>{refreshing?'Đang tải…':data.manual?'Tải lại dữ liệu':'Cập nhật ngay'}</button></div>
+      <div className={data.warning?'alert error':'data-note'} role={data.warning?'alert':undefined}>{data.warning||`Dữ liệu đã lưu${data.lastSyncedAt?` · cập nhật nguồn lúc ${new Date(data.lastSyncedAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}`:''}. Bấm Cập nhật dữ liệu để lấy bản mới từ Google.`}</div>
       <div className="list-lead-stats">
         <div className="list-lead-stat"><span className="list-lead-icon"><Users size={19}/></span><span>Tổng lead</span><strong>{total.toLocaleString('vi-VN')}</strong><small>Trong bộ lọc đang chọn</small></div>
         <div className="list-lead-stat"><span className="list-lead-icon green"><Users size={19}/></span><span>Đã ghi liên hệ</span><strong>{contacted.toLocaleString('vi-VN')}</strong><small>{total?Math.round(contacted/total*100):0}% tổng lead</small></div>
@@ -106,3 +100,4 @@ export default function ListLeadPanel(_props:{canEdit?:boolean}) {
     </>}
   </>;
 }
+

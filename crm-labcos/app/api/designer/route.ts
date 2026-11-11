@@ -9,12 +9,13 @@ export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const path='labcos/designer.json';
 const headers={'Cache-Control':'private, no-store'};
-export async function GET(){
+export async function GET(request?:Request){
   const user=await getChatGPTUser(true);
   if(!user)return Response.json({error:'Cần đăng nhập.'},{status:401,headers});
   try{
     let data:DesignData|null=null,warning:string|null=null,live=false;
-    try{data=await refreshDesigner();live=true}catch(error){warning=syncWarning(error);data=await readPrivate<DesignData|null>(path,null);}
+    const refresh=!!request&&new URL(request.url).searchParams.get('refresh')==='1';
+    try{data=await refreshDesigner(refresh);live=refresh}catch(error){warning=syncWarning(error);data=await readPrivate<DesignData|null>(path,null);}
 
     if(!data)return Response.json({error:'Chưa có dữ liệu ORDER DESIGN.'},{status:503,headers});
     const orders=await readPrivate<DesignOrder[]>('labcos/design-orders.json',[]);

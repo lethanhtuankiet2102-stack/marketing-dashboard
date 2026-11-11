@@ -1,13 +1,11 @@
 import {googleGet} from './google-source';
 import {readPrivate,writePrivate} from './private-store';
 export const sources:Record<string,string>={'2026-07':'1Ty2IgpheFoQmgcvApFFmKy3IM3FSFIhn','2026-08':'1rqSPizX300tzuZkD9G1yQRosUqzcJPJR','2026-09':'1sReRZl5jxL-5zWG7RJZUOaz6AuiCUD4c'};
-type SourceCache={fileId:string;syncedAt:number};
-export async function googleAdsReport(month:string){
+export async function googleAdsReport(month:string,refresh=false){
  const fileId=sources[month];if(!fileId)throw new Error('UNKNOWN_MONTH');
  const htmlPath=`labcos/google-ads-${month}.json`,metaPath=`labcos/google-ads-source-${month}.json`;
- const [cached,metadata]=await Promise.all([readPrivate<string|null>(htmlPath,null).catch(()=>null),readPrivate<SourceCache|null>(metaPath,null).catch(()=>null)]);
- const age=metadata?Date.now()-metadata.syncedAt:Infinity;
- if(cached&&metadata?.fileId===fileId&&age>=0&&age<60000)return {html:cached,stale:false};
+ const cached=await readPrivate<string|null>(htmlPath,null).catch(()=>null);
+ if(!refresh){if(cached)return {html:cached,stale:false};throw new Error('SOURCE_CACHE_MISSING');}
  try{
   const response=await googleGet(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`);
   if(Number(response.headers.get('content-length'))>2000000)throw new Error('SOURCE_TOO_LARGE');
@@ -17,3 +15,4 @@ export async function googleAdsReport(month:string){
   return {html,stale:false};
  }catch(error){if(cached)return {html:cached,stale:true};throw error;}
 }
+
