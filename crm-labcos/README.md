@@ -44,3 +44,16 @@ Owner accounts can connect Google in Designer or List Lead. The app uses the exi
 The owner grants read-only Drive access once. The refresh token stays in private Blob and is never returned to the browser or committed. Only the two configured source files are fetched. `DESIGNER_SHEET_ID` and `LIST_LEAD_SHEET_ID` can override the known source IDs. Designer uses formatted cell values and hyperlinks from Sheets API, including KPI CONFIG 2026. List Lead downloads the existing Excel source stored on Drive; it does not require changing that file into a native Sheet or making it public.
 
 Visible Designer and List Lead panels poll every minute and refresh on window focus. Server reads use at most a one-minute saved snapshot, so a new visitor also obtains current source data. This is pull sync while the CRM is in use; no background schedule runs when nobody is using it. Uploaded List Lead snapshots no longer block Google refresh. Source failures retain the prior data and display a warning. Designer levels are merged inside a conditional Blob update, preserving dashboard overrides only for a unique period/platform/task-name match, never by moving row position. Renamed or ambiguous tasks require review of their levels. Level selections are stored on CRM, not written back to the Google file.
+
+### Zalo Sales notifications (CRM-created leads only)
+
+To enable automatic messages after a successful **Sale → Khách hàng & Lead → Thêm lead**, configure server-side environment variables in Vercel, then redeploy:
+
+| Variable | Purpose |
+| --- | --- |
+| `ZALO_BOT_TOKEN` | Bot Token from Zalo Bot Manager; secret, do not use `NEXT_PUBLIC_` |
+| `ZALO_SALES_GROUP_ID` | Group chat ID from an @mention event (format `zgr-...`) |
+
+Verify manually that `sendMessage` works for that group before enabling the integration. New CRM leads of type `lead` trigger one immediate best-effort notification; duplicate POSTs, edits, imported Sheet leads, and records created directly as customers do not trigger it. The group message includes name, source, need, assigned Sales and date, but never phone, email, or private notes. Zalo errors do not roll back saved leads; the API response includes `zaloNotification` (`sent`, `failed`, `not_configured`, or `skipped`). Check Vercel function logs for `ZALO_LEAD_NOTIFY_FAILED` without exposing the token.
+
+This MVP has **no automatic retry after a failed Zalo API call**. Add a durable outbox and retry worker before relying on it for guaranteed delivery or overdue-lead reminders. No incoming webhook is required for outbound notifications.
