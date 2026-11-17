@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {getChatGPTUser} from '../../chatgpt-auth';
 import {canEditLeads} from '../../access-policy';
 import {transactPrivate} from '../../../lib/private-store';
+import {notifyZaloNewLead} from '../../../lib/zalo-lead-notify';
 import {readSaleWorkspace,normalizeSaleLead,validateSaleFields,updateSaleLead,saleDashboardPath,emptySaleDashboard,type SaleDashboard} from '../../../lib/sale-leads';
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -22,11 +23,13 @@ async function mutate(request:Request,method:'POST'|'PATCH'|'DELETE'){
   await readSaleWorkspace();
   const fields=method==='POST'?validateSaleFields(input):null;
   const at=new Date().toISOString();
+  let created=false;
   const result=await transactPrivate<SaleDashboard>(saleDashboardPath,emptySaleDashboard,dashboard=>{
+   created=false;
    dashboard.leads=(dashboard.leads||[]).map(normalizeSaleLead);const lead=dashboard.leads.find(l=>l.id===input.id);
    if(method==='POST'){
     if(lead){if(lead.created_by!==user.email)throw new Error('CONFLICT');return dashboard;}
-    dashboard.leads.unshift({...fields!,id:input.id as string,revision:randomUUID(),created_at:at,updated_at:at,created_by:user.email,origin:'crm',history:[{id:randomUUID(),at,by:user.email,action:'created'}]});return dashboard;
+    dashboard.leads.unshift({...fields!,id:input.id as string,revision:randomUUID(),created_at:at,updated_at:at,created_by:user.email,origin:'crm',history:[{id:randomUUID(),at,by:user.email,action:'created'}]});created=true;return dashboard;
    }
    if(!lead)throw new Error('NOT_FOUND');if(lead.revision!==input.revision)throw new Error('CONFLICT');
    if(method==='DELETE'||input.action==='restore'){
@@ -37,7 +40,13 @@ async function mutate(request:Request,method:'POST'|'PATCH'|'DELETE'){
    }else updateSaleLead(lead,validateSaleFields(mergeFields(lead,input)),user.email);
    return dashboard;
   });
-  return Response.json({lead:result.leads.find(l=>l.id===input.id)},{status:method==='POST'?201:200,headers});
+  const lead=result.leads.find(l=>l.id===input.id);
+  let zaloNotification:'sent'|'failed'|'not_configured'|'skipped'='skipped';
+  if(method==='POST'&&created&&lead?.origin==='crm'&&lead.record_kind==='lead'){
+   try{zaloNotification=await notifyZaloNewLead(lead);}
+   catch{zaloNotification='failed';console.error('ZALO_LEAD_NOTIFY_FAILED',lead.id);}
+  }
+  return Response.json({lead,...(method==='POST'?{zaloNotification}:{})},{status:method==='POST'?201:200,headers});
  }catch(error){const code=error instanceof Error?error.message:'';const status=code==='CONFLICT'?409:code==='NOT_FOUND'?404:code==='INPUT'||error instanceof SyntaxError?400:503;return Response.json({error:status===409?'Lead vừa được người khác cập nhật. Tải lại danh sách rồi mở lại lead; nội dung đang nhập được giữ.':status===404?'Không tìm thấy lead.':status===400?'Kiểm tra tên, ngày ghi nhận, giai đoạn, giá trị và nội dung chăm sóc.':'Chưa lưu được thay đổi. Hãy thử lại.'},{status,headers});}
 }
 export const POST=(r:Request)=>mutate(r,'POST');
