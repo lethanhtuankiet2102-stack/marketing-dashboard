@@ -47,7 +47,7 @@ const password='test-only-password-123456';
    db.set('labcos/'+(file==='sale-performance'?file:'sale-lead-report')+'.json',{fromDate:'2026-07-01',throughDate:'2026-10-31',people:[]});
    const route=mod('app/api/'+file+'/route.ts',{'../../chatgpt-auth':auth,'../../../lib/private-store':store});assert.equal((await route.GET(new Request('https://crm.test/api/test?since=2026-07-01&until=2026-09-30&channel=google'))).status,200);
   }
-  const list=mod('app/api/list-lead/route.ts',{'../../chatgpt-auth':auth,'../../../lib/private-store':store,'../../../lib/google-source':{},'./workbook':{}});
+  const list=mod('app/api/list-lead/route.ts',{'../../../lib/sale-leads':{readSaleWorkspace:async snapshot=>({dashboard:{leads:[]},snapshot}),saleListView:(dashboard,snapshot)=>snapshot||{items:[]}},'../../chatgpt-auth':auth,'../../../lib/private-store':store,'../../../lib/google-source':{},'./workbook':{}});
   db.set('labcos/list-leads.json',{items:[],lastSyncedAt:new Date().toISOString()});assert.equal((await list.GET()).status,200);
   assert.equal((await list.POST(req({}))).status,role==='sale_admin'?400:401);
   const meta=mod('app/api/meta/route.ts',{'../../roles':roles,'../../../lib/private-store':store});delete process.env.META_AD_ACCOUNT_ID;

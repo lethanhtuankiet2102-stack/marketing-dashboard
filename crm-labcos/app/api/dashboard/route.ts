@@ -1,5 +1,5 @@
 import { dashboardRole } from '../../roles';
-import { readPrivate, writePrivate } from '../../../lib/private-store';
+import { readPrivate, transactPrivate } from '../../../lib/private-store';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -30,7 +30,7 @@ function fields(input:Record<string,unknown>) {
 export async function GET() {
   const role=await dashboardRole(true);if(!role)return Response.json({error:'Cần đăng nhập.'},{status:401});
   if(role==='order')return Response.json({error:'Không có quyền truy cập.'},{status:403});
-  try {const data=await readPrivate(path,empty);return Response.json({leads:data.leads,content:role==='sale_oem'?[]:data.content,role},{headers:{'Cache-Control':'private, no-store'}})}catch(e){console.error('Dashboard read failed',e);return error()}
+  try {const data=await readPrivate(path,empty);return Response.json({leads:data.leads.filter(row=>!row.archived_at),content:role==='sale_oem'?[]:data.content,role},{headers:{'Cache-Control':'private, no-store'}})}catch(e){console.error('Dashboard read failed',e);return error()}
 }
 export async function POST(request:Request) { return mutate(request,'POST'); }
 export async function PATCH(request:Request) { return mutate(request,'PATCH'); }
@@ -45,19 +45,22 @@ async function mutate(request:Request,method:'POST'|'PATCH'|'DELETE') {
     const collection=input.kind==='lead'?'leads':input.kind==='content'?'content':null;
     if(!collection)return Response.json({error:'Loại dữ liệu không hợp lệ.'},{status:400});
     if(role==='sale_oem'&&collection!=='leads')return Response.json({error:'Sale OEM chỉ được chỉnh sửa khách hàng và lead.'},{status:403});
-    const data=await readPrivate(path,empty);
-    const rows=data[collection],id=method==='POST'?crypto.randomUUID():str(input.id,80),index=rows.findIndex(row=>row.id===id);
-    if(method!=='POST'&&index<0)return Response.json({error:'Không tìm thấy bản ghi.'},{status:404});
+    const id=method==='POST'?crypto.randomUUID():str(input.id,80);
+    await transactPrivate(path,empty,data=>{
+    const rows=data[collection],index=rows.findIndex(row=>row.id===id);
+    if(method!=='POST'&&index<0)throw new Error('NOT_FOUND');
+    if(method!=='POST'&&rows[index].revision)throw new Error('CONFLICT');
     if(method==='DELETE')rows.splice(index,1);
     else {
-      const values=fields(input);if(!values)return Response.json({error:'Dữ liệu không hợp lệ.'},{status:400});
+      const values=fields(input);if(!values)throw new Error('INPUT');
       const now=new Date().toISOString();
       if(method==='POST')rows.unshift({id,...values,created_at:now,updated_at:now});
       else rows[index]={...rows[index],...values,updated_at:now};
     }
-    await writePrivate(path,data);
+    return data;
+    });
     return Response.json(method==='POST'?{id}:{ok:true},{status:method==='POST'?201:200});
-  }catch(e){console.error('Dashboard write failed',e);return error()}
+  }catch(e){const code=e instanceof Error?e.message:'';if(['NOT_FOUND','CONFLICT','INPUT'].includes(code))return Response.json({error:code==='CONFLICT'?'Bản ghi đã thay đổi. Mở Sale / Khách hàng & Lead để sửa bản mới.':code==='NOT_FOUND'?'Không tìm thấy bản ghi.':'Dữ liệu không hợp lệ.'},{status:code==='CONFLICT'?409:code==='NOT_FOUND'?404:400});console.error('Dashboard write failed',e);return error()}
 }
 
 

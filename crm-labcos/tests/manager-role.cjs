@@ -5,7 +5,7 @@ const owner={email:'owner@test.com',userId:'owner',displayName:'Owner',fullName:
 let actor=owner,accounts=[],cookie;
 const authMock={getChatGPTUser:async()=>actor};
 const config={levels:[{id:'L2',points:2}],taskDefaults:{Banner:'L2'},items:[]};let orders=[];
-const privateStore={readPrivate:async(path,fallback)=>path.includes('viewers.json')?structuredClone(accounts):path.includes('designer.json')?config:path.includes('design-orders.json')?orders:fallback,transactPrivate:async(path,fallback,fn)=>{const value=fn(structuredClone(accounts));accounts=value;return value;},updatePrivate:async(path,fn)=>fn(structuredClone(config)),writePrivate:async()=>{}};
+const privateStore={readPrivate:async(path,fallback)=>path.includes('viewers.json')?structuredClone(accounts):path.includes('designer.json')?config:path.includes('design-orders.json')?orders:fallback,transactPrivate:async(path,fallback,fn)=>{if(!path.includes('viewers.json'))return fn(structuredClone(fallback));const value=fn(structuredClone(accounts));accounts=value;return value;},updatePrivate:async(path,fn)=>fn(structuredClone(config)),writePrivate:async()=>{}};
 const users=mod('app/api/users/route.ts',{'../../chatgpt-auth':authMock,'../../../lib/private-store':privateStore});
 const req=(body,origin='https://crm.test')=>new Request('https://crm.test/api/users',{method:'POST',headers:{origin,'Content-Type':'application/json'},body:JSON.stringify(body)});
 const password='test-password-123456';
@@ -37,7 +37,7 @@ const password='test-password-123456';
  const designerModel=mod('app/designer-model.ts',{}),ordersModel=mod('app/design-orders-model.ts',{'./designer-model':designerModel});
 const workspaceModel=mod('lib/designer-workspace.ts',{'../app/designer-model':designerModel,'../app/design-orders-model':ordersModel});
  const designer=mod('app/api/designer/route.ts',{'../../../lib/designer-workspace':workspaceModel,'../../chatgpt-auth':authMock,'../../../lib/private-store':privateStore,'../../../lib/designer-sync':{refreshDesigner:async()=>config},'../../../lib/google-source':{syncWarning:()=>''},'../../designer-model':{effectiveLevel:()=>null,workloadPoints:()=>null},'../../design-orders-model':{orderTask:()=>{}}});assert.equal((await (await designer.GET()).json()).canEdit,true);assert.equal((await designer.PATCH(req({}))).status,400);
- const listLead=mod('app/api/list-lead/route.ts',{'../../chatgpt-auth':authMock,'../../../lib/private-store':privateStore,'../../../lib/google-source':{},'./workbook':{}});assert.equal((await listLead.POST(req({}))).status,400);
+ const listLead=mod('app/api/list-lead/route.ts',{'../../../lib/sale-leads':{readSaleWorkspace:async snapshot=>({dashboard:{leads:[]},snapshot}),saleListView:(dashboard,snapshot)=>snapshot||{items:[]}},'../../chatgpt-auth':authMock,'../../../lib/private-store':privateStore,'../../../lib/google-source':{},'./workbook':{}});assert.equal((await listLead.POST(req({}))).status,400);
  const google=mod('app/api/google-sync/route.ts',{'../../chatgpt-auth':authMock,'../../../lib/private-store':privateStore,'../../../lib/google-source':{googleConfigured:()=>true,googleCredentialIssue:()=>null}});assert.equal((await (await google.GET()).json()).canConnect,false);
  const connect=mod('app/api/google-sync/connect/route.ts',{'../../../chatgpt-auth':authMock,'../../../../lib/google-source':{}});assert.equal((await connect.POST(req({}))).status,403);
  const auth=mod('app/chatgpt-auth.ts',{'next/headers':{cookies:async()=>({get:()=>({value:cookie})})},'next/navigation':{},'../lib/private-store':privateStore});process.env.AUTH_SESSION_SECRET='test-only-manager-secret-at-least-24-characters';
@@ -50,3 +50,4 @@ const workspaceModel=mod('lib/designer-workspace.ts',{'../app/designer-model':de
  actor=null;assert.equal((await users.GET()).status,403);assert.equal((await roles.requireAdminWrite()).status,401);
  console.log('PASS: owner-only manager grants/revocation, delegated account creation, protected peers/self, no owner escalation, atomic authority recheck, CRM writes, hidden Google controls, login and immediate role downgrade.');
 })().catch(error=>{console.error(error);process.exit(1)});
+

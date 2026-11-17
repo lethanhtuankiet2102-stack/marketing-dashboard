@@ -2,6 +2,7 @@ import {leadWorkbook,syncWarning} from '../../../lib/google-source';
 import { getChatGPTUser } from '../../chatgpt-auth';
 import { parseLeadWorkbook } from './workbook';
 import { readPrivate, writePrivate } from '../../../lib/private-store';
+import {readSaleWorkspace,saleListView,type LeadSnapshot} from '../../../lib/sale-leads';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -10,6 +11,7 @@ export const maxDuration = 60;
 type Stored = ReturnType<typeof parseLeadWorkbook> & { mode?:'upload'; lastSyncedAt?:string; fileName?:string };
 const cachePath='labcos/list-leads.json';
 const headers={'Cache-Control':'private, no-store'};
+async function view(snapshot:LeadSnapshot|null,options:Record<string,unknown>){const {dashboard}=await readSaleWorkspace(snapshot);const result=saleListView(dashboard,snapshot);return !snapshot&&!result.items.length?Response.json({error:'Chưa có dữ liệu lead. Mở Sale để thêm lead hoặc bấm Cập nhật dữ liệu.'},{status:503,headers}):Response.json({...result,...options},{headers});}
 
 
 export async function GET(request?:Request) {
@@ -20,15 +22,15 @@ export async function GET(request?:Request) {
   if(user.role==='order')return Response.json({error:'Không có quyền truy cập mục Sale.'},{status:403,headers:{'Cache-Control':'private, no-store'}});
   const saved=await readPrivate<Stored|null>(cachePath,null).catch(()=>null);
   const refresh=!!request&&new URL(request.url).searchParams.get('refresh')==='1';
-  if(!refresh)return saved?Response.json({...saved,live:false,manual:saved.mode==='upload',warning:null},{headers}):Response.json({error:'Chưa có bản lưu List Lead. Bấm Cập nhật dữ liệu để lấy file nguồn.'},{status:503,headers});
+  if(!refresh){try{return await view(saved,{live:false,manual:saved?.mode==='upload',warning:null})}catch{return Response.json({error:'Chưa tải được dữ liệu lead.'},{status:503,headers})}}
   try {
     const records=parseLeadWorkbook(await leadWorkbook());
     if(!records.items.length)throw new Error('SOURCE_EMPTY');
     const next={...records,lastSyncedAt:new Date().toISOString(),fileName:'LABCOS _ LỊCH TRỰC PAGE (Google Drive)'};
     await writePrivate(cachePath,next);
-    return Response.json({...next,live:true,manual:false,warning:null},{headers});
+    return await view(next,{live:false,manual:false,warning:null});
   } catch(error) {
-    if(saved)return Response.json({...saved,live:false,manual:false,warning:syncWarning(error)},{headers});
+    if(saved)return await view(saved,{live:false,manual:false,warning:syncWarning(error)});
     return Response.json({error:syncWarning(error)},{status:503,headers});
   }
 }
@@ -54,7 +56,7 @@ export async function POST(request:Request) {
   } catch(error) {return Response.json({error:error instanceof Error?error.message:'Không đọc được file Excel.'},{status:400,headers});}
   try {
     await writePrivate(cachePath,records);
-    return Response.json({...records,live:false,manual:true,warning:null},{headers});
+    return await view(records,{live:false,manual:true,warning:null});
   } catch {return Response.json({error:'Chưa lưu được dữ liệu. Hãy thử lại; bản cũ vẫn được giữ.'},{status:503,headers});}
 }
 
