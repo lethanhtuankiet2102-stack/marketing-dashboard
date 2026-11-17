@@ -1,6 +1,6 @@
 import {createHash,randomUUID} from 'node:crypto';
 import {readPrivate,transactPrivate} from './private-store';
-import {emptySaleLead,saleChannel,saleNormalize,saleStages,saleToday,type SaleLead,type SaleLeadFields,type SaleStage} from '../app/sale-leads-model';
+import {emptySaleLead,saleChannel,saleNormalize,saleStages,saleToday,salePrimaryStatus,type SaleLead,type SaleLeadFields,type SaleStage} from '../app/sale-leads-model';
 export type SheetLead={id:string;sheetRow:number;date:string;number:string;name:string;phone:string;status:string;sales:string;need:string;note:string};
 export type LeadSnapshot={items:SheetLead[];fromDate:string;throughDate:string;lastSyncedAt?:string;source?:string;mode?:'upload';fileName?:string};
 export type SaleDashboard={leads:SaleLead[];content:Record<string,unknown>[];_saleSourceVersion?:string;_saleSourceSyncedAt?:string;[key:string]:unknown};
@@ -12,7 +12,7 @@ function sheetStage(value:string):SaleStage{
  const s=saleNormalize(value);
  if(!s)return 'new';
  if(saleStages.some(([key])=>key===s))return s as SaleStage;
- const mapped:Record<string,SaleStage>={'moi':'new','chua lien he':'new','chua cham soc':'new','khach moi':'new','da lien he':'contacted','quan tam':'interested','dang tu van':'interested','da hen':'booked','hen gap':'booked','chot don':'won','da chot':'won','thanh cong':'won','khong phu hop':'lost','that bai':'lost','mat lead':'lost','dang cham soc':'caring','da gui hop dong':'contract_sent','dang doi mau':'waiting_sample','da bao gia':'quoted','da lh - chua tu van':'contacted_not_advised','da lh - khach chua phan hoi':'waiting_reply','khong lien lac duoc':'unreachable','closed':'closed'};
+ const mapped:Record<string,SaleStage>={'moi':'new','chua lien he':'new','chua cham soc':'new','khach moi':'new','da lien he':'contacted','quan tam':'interested','dang tu van':'interested','da hen':'booked','hen gap':'booked','chot don':'won','da chot':'won','thanh cong':'won','khong phu hop':'lost','that bai':'lost','mat lead':'lost','dang cham soc':'caring','da gui hop dong':'contract_sent','dang doi mau':'waiting_sample','da bao gia':'quoted','da lh - chua tu van':'contacted_not_advised','da lh - khach chua phan hoi':'waiting_reply','khong lien lac duoc':'unreachable','closed':'closed','win':'won','da gui mau':'samples_sent','dang doi mau fix':'waiting_sample_fix'};
  return mapped[s]||'contacted';
 }
 function phoneKey(value:string){let s=value.replace(/\D/g,'');if(s.startsWith('84'))s='0'+s.slice(2);if(s.length===9)s='0'+s;return s;}
@@ -22,7 +22,7 @@ function fingerprint(row:SheetLead){return hash([sourceFields(row),row.status]);
 export function normalizeSaleLead(raw:SaleLead):SaleLead{
  const fields={...emptySaleLead(),...raw};
  const status=saleStages.some(([s])=>s===fields.status)?fields.status:'new';
- return {...fields,channel:raw.channel||saleChannel(fields.source),date:raw.date||raw.created_at?.slice(0,10)||'',status,origin:raw.origin||'crm',history:Array.isArray(raw.history)?raw.history:[],revision:raw.revision||'legacy-'+hash(raw)};
+ return {...fields,status_tags:Array.isArray(raw.status_tags)?raw.status_tags.filter(s=>saleStages.some(([key])=>key===s)):[],channel:raw.channel||saleChannel(fields.source),date:raw.date||raw.created_at?.slice(0,10)||'',status,origin:raw.origin||'crm',history:Array.isArray(raw.history)?raw.history:[],revision:raw.revision||'legacy-'+hash(raw)};
 }
 export function reconcileSaleLeads(dashboard:SaleDashboard,snapshot:LeadSnapshot,now=new Date().toISOString()):SaleDashboard{
  const leads=(dashboard.leads||[]).map(normalizeSaleLead),seen=new Set<string>();
@@ -69,13 +69,14 @@ export function validateSaleFields(input:Record<string,unknown>):SaleLeadFields{
  for(const [key,max] of Object.entries(limits)){if(input[key]===undefined)continue;if(typeof input[key]!=='string'||(input[key] as string).length>max)throw new Error('INPUT');Object.assign(value,{[key]:(input[key] as string).trim()});}
  if(!value.name||!value.date||!['date','next_action','contact_date','received_date','conversion_date','order_action_date','last_order_date'].every(k=>validDate(value[k as keyof SaleLeadFields] as string))||!saleStages.some(([s])=>s===value.status))throw new Error('INPUT');
  for(const [key,options] of Object.entries({record_kind:['lead','customer'],lead_group:['','A','B','C','D'],customer_group:['',...['CD3','CD4','CD5'].flatMap(c=>['A1','A2','A3','A4'].map(a=>`${c} - ${a}`))],fit:['','Fit Lead','Unfit lead'],sale_type:['','OEM','Xá']}))if(!options.includes(value[key as keyof SaleLeadFields] as string))throw new Error('INPUT');
+ if(input.status_tags!==undefined){if(!Array.isArray(input.status_tags)||input.status_tags.length>saleStages.length||input.status_tags.some(s=>typeof s!=='string'||!saleStages.some(([key])=>key===s)))throw new Error('INPUT');value.status_tags=[...new Set(input.status_tags)] as SaleStage[];if(value.status_tags.length)value.status=salePrimaryStatus(value.status_tags);}
  if(input.quality_lead!==undefined&&typeof input.quality_lead!=='boolean')throw new Error('INPUT');value.quality_lead=input.quality_lead===true;
  for(const key of ['value','po_value'] as const){const amount=input[key]===undefined?0:input[key];if(typeof amount!=='number'||!Number.isFinite(amount)||amount<0||amount>1e12)throw new Error('INPUT');value[key]=amount;}
  if(value.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.email))throw new Error('INPUT');
  value.source=value.source||'Khác';value.channel=saleChannel(value.source);return value;
 }
 export function updateSaleLead(lead:SaleLead,fields:SaleLeadFields,actor:string,note?:string){
- const changes=fieldKeys.filter(k=>lead[k]!==fields[k]),before=lead.status,at=new Date().toISOString(),detail=Object.fromEntries(changes.map(k=>[k,{before:lead[k]??'',after:fields[k]}]));
- Object.assign(lead,fields,{revision:randomUUID(),updated_at:at,_crmEdited:[...new Set([...(lead._crmEdited||[]),...changes,...(note?['status','next_action']:[])])],history:[...(lead.history||[]),{id:randomUUID(),at,by:actor,action:note?'care':'updated',note,fields:changes,changes:detail,fromStatus:before,toStatus:fields.status}]});
+ const changes=fieldKeys.filter(k=>JSON.stringify(lead[k])!==JSON.stringify(fields[k])),before=lead.status,at=new Date().toISOString(),detail=Object.fromEntries(changes.map(k=>[k,{before:lead[k]??'',after:fields[k]}]));
+ Object.assign(lead,fields,{revision:randomUUID(),updated_at:at,_crmEdited:[...new Set([...(lead._crmEdited||[]),...changes,...(changes.includes('status_tags')?['status','status_tags']:[]),...(note?['status','next_action']:[])])],history:[...(lead.history||[]),{id:randomUUID(),at,by:actor,action:note?'care':'updated',note,fields:changes,changes:detail,fromStatus:before,toStatus:fields.status}]});
  return lead;
 }

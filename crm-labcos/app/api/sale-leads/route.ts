@@ -33,8 +33,8 @@ async function mutate(request:Request,method:'POST'|'PATCH'|'DELETE'){
     lead.archived_at=method==='DELETE'?at:null;lead.updated_at=at;lead.revision=randomUUID();lead.history.push({id:randomUUID(),at,by:user.email,action:method==='DELETE'?'archived':'restored'});
    }else if(input.action==='care'){
     if(typeof input.careNote!=='string'||!input.careNote.trim()||input.careNote.length>4000)throw new Error('INPUT');
-    const next=validateSaleFields({...lead,...input,last_interaction:input.careNote.trim()});updateSaleLead(lead,next,user.email,input.careNote.trim());
-   }else updateSaleLead(lead,validateSaleFields({...lead,...input}),user.email);
+    const next=validateSaleFields(mergeFields(lead,input,input.careNote.trim()));updateSaleLead(lead,next,user.email,input.careNote.trim());
+   }else updateSaleLead(lead,validateSaleFields(mergeFields(lead,input)),user.email);
    return dashboard;
   });
   return Response.json({lead:result.leads.find(l=>l.id===input.id)},{status:method==='POST'?201:200,headers});
@@ -43,3 +43,5 @@ async function mutate(request:Request,method:'POST'|'PATCH'|'DELETE'){
 export const POST=(r:Request)=>mutate(r,'POST');
 export const PATCH=(r:Request)=>mutate(r,'PATCH');
 export const DELETE=(r:Request)=>mutate(r,'DELETE');
+
+function mergeFields(lead:Record<string,unknown>,input:Record<string,unknown>,interaction?:string){const next:Record<string,unknown>={...lead,...input,...(interaction===undefined?{}:{last_interaction:interaction})};if(input.status_tags===undefined&&input.status!==undefined&&input.status!==lead.status)next.status_tags=[];return next;}
