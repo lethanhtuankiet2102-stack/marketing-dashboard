@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test:designer": "node tests/design-orders.cjs && node tests/manager-role.cjs && node tests/unified-designer.cjs && node tests/designer-inline.cjs && node tests/designer-filters.cjs && node tests/sale-roles.cjs && node tests/design-order-brief-date.cjs && node tests/design-order-duplicate.cjs",
     "test:google-ads": "node tests/google-ads-reports.cjs && node tests/google-ads-summary.cjs && node tests/manual-sync.cjs",
-    "test:sale": "node tests/sale-workspace.cjs && node tests/sale-workspace-ui.cjs"
+    "test:sale": "node tests/sale-workspace.cjs && node tests/sale-workspace-ui.cjs && node tests/sale-monthly.cjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.0.0",

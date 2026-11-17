@@ -7,7 +7,7 @@ export function canEditLeads(role:UserRole|null){return canEditWorkspace(role)||
 export function canAccessTab(role:UserRole|null,tab:string){
  if(!role)return false;
  if(role==='order')return ['designer','designer-performance'].includes(tab);
- if(role==='sale_oem')return ['sale','leads','list-lead','sale-performance','sale-lead-report','designer'].includes(tab);
+ if(role==='sale_oem')return ['sale-monthly','sale','leads','list-lead','sale-performance','sale-lead-report','designer'].includes(tab);
  return tab!=='users'||canManageAccounts(role);
 }
 export function defaultTab(role:UserRole){return role==='sale_oem'?'leads':role==='order'?'designer':'overview';}

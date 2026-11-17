@@ -5,6 +5,7 @@ import { Activity, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronRight, F
 import MetaPanel from './meta-panel';
 import SaleLeadsPanel from './sale-leads-panel';
 import GoogleAdsPanel from './google-ads-panel';
+import SaleMonthlyPanel from './sale-monthly-panel';
 import SalePerformancePanel from './sale-performance-panel';
 import SaleLeadReportPanel from './sale-lead-report-panel';
 import MarketingOverviewPanel from './marketing-overview-panel';
@@ -13,7 +14,7 @@ import DesignerPanel from './designer-panel';
 import DesignerPerformancePanel from './designer-performance-panel';
 import {canAccessTab,canManageAccounts,canEditWorkspace,canEditLeads,defaultTab,designerLanding,roleLabels,type UserRole} from './access-policy';
 
-type Tab = 'sale' | 'overview' | 'marketing' | 'leads' | 'list-lead' | 'sale-performance' | 'sale-lead-report' | 'content' | 'kpis' | 'meta' | 'google' | 'users' | 'designer' | 'designer-performance';
+type Tab = 'sale-monthly' | 'sale' | 'overview' | 'marketing' | 'leads' | 'list-lead' | 'sale-performance' | 'sale-lead-report' | 'content' | 'kpis' | 'meta' | 'google' | 'users' | 'designer' | 'designer-performance';
 type Lead = { id:string; name:string; company:string; phone:string; source:string; status:string; value:number; next_action:string; note:string; created_at:string; updated_at:string };
 type Content = { id:string; title:string; channel:string; status:string; publish_date:string; brief:string; created_at:string; updated_at:string };
 type ContentForm = { title:string; channel:string; status:string; publishDate:string; brief:string };
@@ -21,7 +22,7 @@ const stages = [ ['new','Mới'], ['contacted','Đã liên hệ'], ['interested'
 const contentStages = [ ['draft','Bản nháp'], ['review','Chờ duyệt'], ['scheduled','Đã lên lịch'], ['published','Đã đăng'] ] as const;
 const tabs = [ { id:'overview', label:'Tổng quan', icon:LayoutDashboard }, { id:'marketing', label:'Marketing', icon:Megaphone }, { id:'sale', label:'Sale', icon:Users }, { id:'designer', label:'Designer', icon:Pencil }, { id:'kpis', label:'KPI', icon:BarChart3 }, { id:'users', label:'Người dùng', icon:Users } ] as const;
 const marketingTabs = [ { id:'marketing', label:'Overview', icon:LayoutDashboard }, { id:'meta', label:'Meta Ads', icon:Megaphone }, { id:'google', label:'Google Ads', icon:BarChart3 }, { id:'content', label:'Nội dung', icon:FileText } ] as const;
-const saleTabs = [ { id:'leads', label:'Khách hàng & Lead', icon:Users }, { id:'sale-performance', label:'Sale Performance', icon:BarChart3 }, { id:'sale-lead-report', label:'Sale Lead Report', icon:FileText } ] as const;
+const saleTabs = [ { id:'leads', label:'Khách hàng & Lead', icon:Users }, { id:'sale-monthly', label:'Hiệu suất tháng', icon:BarChart3 }, { id:'sale-performance', label:'Sale Performance', icon:BarChart3 }, { id:'sale-lead-report', label:'Sale Lead Report', icon:FileText } ] as const;
 const designerTabs = [ { id:'designer-performance', label:'Hiệu suất', icon:BarChart3 }, { id:'designer', label:'Task & Order', icon:FileText } ] as const;
 const emptyContent:ContentForm = { title:'', channel:'Facebook', status:'draft', publishDate:'', brief:'' };
 const money = (n:number) => new Intl.NumberFormat('vi-VN', { notation:'compact', maximumFractionDigits:1 }).format(n) + ' ₫';
@@ -135,6 +136,7 @@ export default function Dashboard() {
           {tab==='google'&&<GoogleAdsPanel/>}
           {tab==='designer'&&<DesignerPanel/>}
           {tab==='designer-performance'&&<DesignerPerformancePanel/>}
+          {tab==='sale-monthly'&&<SaleMonthlyPanel/>}
           {tab==='sale-performance'&&<SalePerformancePanel/>}
           {tab==='sale-lead-report'&&<SaleLeadReportPanel/>}
           {tab==='users'&&canManageUsers&&<UserAccessPanel/>}
