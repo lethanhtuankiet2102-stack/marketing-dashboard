@@ -12,12 +12,12 @@ function sheetStage(value:string):SaleStage{
  const s=saleNormalize(value);
  if(!s)return 'new';
  if(saleStages.some(([key])=>key===s))return s as SaleStage;
- const mapped:Record<string,SaleStage>={'moi':'new','chua lien he':'new','chua cham soc':'new','khach moi':'new','da lien he':'contacted','quan tam':'interested','dang tu van':'interested','da hen':'booked','hen gap':'booked','chot don':'won','da chot':'won','thanh cong':'won','khong phu hop':'lost','that bai':'lost','mat lead':'lost'};
+ const mapped:Record<string,SaleStage>={'moi':'new','chua lien he':'new','chua cham soc':'new','khach moi':'new','da lien he':'contacted','quan tam':'interested','dang tu van':'interested','da hen':'booked','hen gap':'booked','chot don':'won','da chot':'won','thanh cong':'won','khong phu hop':'lost','that bai':'lost','mat lead':'lost','dang cham soc':'caring','da gui hop dong':'contract_sent','dang doi mau':'waiting_sample','da bao gia':'quoted','da lh - chua tu van':'contacted_not_advised','da lh - khach chua phan hoi':'waiting_reply','khong lien lac duoc':'unreachable','closed':'closed'};
  return mapped[s]||'contacted';
 }
 function phoneKey(value:string){let s=value.replace(/\D/g,'');if(s.startsWith('84'))s='0'+s.slice(2);if(s.length===9)s='0'+s;return s;}
 function sourceKey(row:SheetLead){return hash([row.date,saleNormalize(row.name),phoneKey(row.phone)]);}
-function sourceFields(row:SheetLead):SaleLeadFields{return {name:row.name||'Chưa ghi tên',phone:row.phone,company:'',date:row.date,sales:row.sales,need:row.need,note:row.note,status:sheetStage(row.status),value:0,next_action:'',source:/\bzalo\s*oa\b/.test(saleNormalize(row.note))?'Zalo OA/Google':'Messenger/Facebook Ads',channel:/\bzalo\s*oa\b/.test(saleNormalize(row.note))?'google':'facebook'};}
+function sourceFields(row:SheetLead):SaleLeadFields{return {...emptySaleLead(),name:row.name||'Chưa ghi tên',phone:row.phone,company:'',date:row.date,sales:row.sales,need:row.need,note:row.note,status:sheetStage(row.status),value:0,next_action:'',source:/\bzalo\s*oa\b/.test(saleNormalize(row.note))?'Zalo OA/Google':'Messenger/Facebook Ads',channel:/\bzalo\s*oa\b/.test(saleNormalize(row.note))?'google':'facebook'};}
 function fingerprint(row:SheetLead){return hash([sourceFields(row),row.status]);}
 export function normalizeSaleLead(raw:SaleLead):SaleLead{
  const fields={...emptySaleLead(),...raw};
@@ -65,14 +65,17 @@ export function saleListView(dashboard:SaleDashboard,snapshot:LeadSnapshot|null)
 }
 const validDate=(v:string)=>!v||/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
 export function validateSaleFields(input:Record<string,unknown>):SaleLeadFields{
- const value=emptySaleLead();const limits:Record<string,number>={name:180,company:180,phone:60,source:120,date:10,sales:120,need:4000,status:30,next_action:10,note:4000};
+ const value=emptySaleLead();const limits:Record<string,number>={name:180,company:180,phone:60,source:120,date:10,sales:120,need:4000,status:30,next_action:10,note:4000,record_kind:20,lead_group:5,customer_group:30,contact_date:10,received_date:10,conversion_date:10,customer_code:120,email:254,last_interaction:4000,action_plan:4000,preliminary_result:4000,fail_reason:4000,fit:30,unfit_reason:4000,sale_type:20,business_model:180,region:180,moq:180,decision_authority:180,products_selling:4000,order_status:180,order_plan:4000,order_action_date:10,order_result:4000,last_order_date:10,upsell_product:4000,upsell_note:4000};
  for(const [key,max] of Object.entries(limits)){if(input[key]===undefined)continue;if(typeof input[key]!=='string'||(input[key] as string).length>max)throw new Error('INPUT');Object.assign(value,{[key]:(input[key] as string).trim()});}
- if(!value.name||!value.date||!validDate(value.date)||!validDate(value.next_action)||!saleStages.some(([s])=>s===value.status))throw new Error('INPUT');
- const amount=input.value===undefined?0:input.value;if(typeof amount!=='number'||!Number.isFinite(amount)||amount<0||amount>1e12)throw new Error('INPUT');value.value=amount;
+ if(!value.name||!value.date||!['date','next_action','contact_date','received_date','conversion_date','order_action_date','last_order_date'].every(k=>validDate(value[k as keyof SaleLeadFields] as string))||!saleStages.some(([s])=>s===value.status))throw new Error('INPUT');
+ for(const [key,options] of Object.entries({record_kind:['lead','customer'],lead_group:['','A','B','C','D'],customer_group:['',...['CD3','CD4','CD5'].flatMap(c=>['A1','A2','A3','A4'].map(a=>`${c} - ${a}`))],fit:['','Fit Lead','Unfit lead'],sale_type:['','OEM','Xá']}))if(!options.includes(value[key as keyof SaleLeadFields] as string))throw new Error('INPUT');
+ if(input.quality_lead!==undefined&&typeof input.quality_lead!=='boolean')throw new Error('INPUT');value.quality_lead=input.quality_lead===true;
+ for(const key of ['value','po_value'] as const){const amount=input[key]===undefined?0:input[key];if(typeof amount!=='number'||!Number.isFinite(amount)||amount<0||amount>1e12)throw new Error('INPUT');value[key]=amount;}
+ if(value.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.email))throw new Error('INPUT');
  value.source=value.source||'Khác';value.channel=saleChannel(value.source);return value;
 }
 export function updateSaleLead(lead:SaleLead,fields:SaleLeadFields,actor:string,note?:string){
- const changes=fieldKeys.filter(k=>lead[k]!==fields[k]),before=lead.status,at=new Date().toISOString();
- Object.assign(lead,fields,{revision:randomUUID(),updated_at:at,_crmEdited:[...new Set([...(lead._crmEdited||[]),...changes,...(note?['status','next_action']:[])])],history:[...(lead.history||[]),{id:randomUUID(),at,by:actor,action:note?'care':'updated',note,fields:changes,fromStatus:before,toStatus:fields.status}]});
+ const changes=fieldKeys.filter(k=>lead[k]!==fields[k]),before=lead.status,at=new Date().toISOString(),detail=Object.fromEntries(changes.map(k=>[k,{before:lead[k]??'',after:fields[k]}]));
+ Object.assign(lead,fields,{revision:randomUUID(),updated_at:at,_crmEdited:[...new Set([...(lead._crmEdited||[]),...changes,...(note?['status','next_action']:[])])],history:[...(lead.history||[]),{id:randomUUID(),at,by:actor,action:note?'care':'updated',note,fields:changes,changes:detail,fromStatus:before,toStatus:fields.status}]});
  return lead;
 }
