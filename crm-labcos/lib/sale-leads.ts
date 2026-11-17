@@ -3,7 +3,7 @@ import {readPrivate,transactPrivate} from './private-store';
 import {emptySaleLead,saleChannel,saleNormalize,saleStages,saleToday,type SaleLead,type SaleLeadFields,type SaleStage} from '../app/sale-leads-model';
 export type SheetLead={id:string;sheetRow:number;date:string;number:string;name:string;phone:string;status:string;sales:string;need:string;note:string};
 export type LeadSnapshot={items:SheetLead[];fromDate:string;throughDate:string;lastSyncedAt?:string;source?:string;mode?:'upload';fileName?:string};
-export type SaleDashboard={leads:SaleLead[];content:Record<string,unknown>[];_saleSourceVersion?:string;[key:string]:unknown};
+export type SaleDashboard={leads:SaleLead[];content:Record<string,unknown>[];_saleSourceVersion?:string;_saleSourceSyncedAt?:string;[key:string]:unknown};
 export const saleDashboardPath='labcos/dashboard.json';
 export const emptySaleDashboard:SaleDashboard={leads:[],content:[]};
 const hash=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0,28);
@@ -48,13 +48,13 @@ export function reconcileSaleLeads(dashboard:SaleDashboard,snapshot:LeadSnapshot
  }
  // A removed Sheet row must never delete its CRM care history or archive state.
  for(const lead of leads)if(lead._sheet&&!seen.has(lead.id))lead.sourceMissing=true;
- return {...dashboard,leads,_saleSourceVersion:hash(snapshot.items)};
+ return {...dashboard,leads,_saleSourceVersion:hash(snapshot.items),_saleSourceSyncedAt:snapshot.lastSyncedAt||dashboard._saleSourceSyncedAt};
 }
 export async function readSaleWorkspace(snapshotInput?:LeadSnapshot|null){
  const [dashboard,snapshot]=await Promise.all([readPrivate<SaleDashboard>(saleDashboardPath,emptySaleDashboard),snapshotInput===undefined?readPrivate<LeadSnapshot|null>('labcos/list-leads.json',null):Promise.resolve(snapshotInput)]);
  if(snapshot&&dashboard._saleSourceVersion!==hash(snapshot.items)){
   if(!dashboard._saleSourceVersion)await transactPrivate<SaleDashboard|null>('labcos/dashboard-before-sale-merge.json',null,saved=>saved??dashboard);
-  const next=await transactPrivate<SaleDashboard>(saleDashboardPath,emptySaleDashboard,current=>current._saleSourceVersion===hash(snapshot.items)?current:reconcileSaleLeads(current,snapshot));
+  const next=await transactPrivate<SaleDashboard>(saleDashboardPath,emptySaleDashboard,current=>current._saleSourceVersion===hash(snapshot.items)||current._saleSourceSyncedAt&&snapshot.lastSyncedAt&&Date.parse(current._saleSourceSyncedAt)>Date.parse(snapshot.lastSyncedAt)?current:reconcileSaleLeads(current,snapshot));
   return {dashboard:{...next,leads:next.leads.map(normalizeSaleLead)},snapshot};
  }
  return {dashboard:{...dashboard,leads:(dashboard.leads||[]).map(normalizeSaleLead)},snapshot};
