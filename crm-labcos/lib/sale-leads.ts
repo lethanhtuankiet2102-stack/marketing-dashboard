@@ -3,10 +3,11 @@ import {readPrivate,transactPrivate} from './private-store';
 import {emptySaleLead,saleChannel,saleNormalize,saleStages,saleToday,salePrimaryStatus,type SaleLead,type SaleLeadFields,type SaleStage} from '../app/sale-leads-model';
 export type SheetLead={id:string;sheetRow:number;date:string;number:string;name:string;phone:string;status:string;sales:string;need:string;note:string};
 export type LeadSnapshot={items:SheetLead[];fromDate:string;throughDate:string;lastSyncedAt?:string;source?:string;mode?:'upload';fileName?:string};
-export type SaleDashboard={leads:SaleLead[];content:Record<string,unknown>[];_saleSourceVersion?:string;_saleSourceSyncedAt?:string;[key:string]:unknown};
+export type SaleDashboard={leads:SaleLead[];content:Record<string,unknown>[];_saleSourceVersion?:string;_saleSourceSyncedAt?:string;_salePurgedIds?:string[];_salePurgedSources?:string[];[key:string]:unknown};
 export const saleDashboardPath='labcos/dashboard.json';
 export const emptySaleDashboard:SaleDashboard={leads:[],content:[]};
 const hash=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0,28);
+export const salePurgeKey=(id:string)=>hash(id);
 const fieldKeys=Object.keys(emptySaleLead()) as (keyof SaleLeadFields)[];
 function sheetStage(value:string):SaleStage{
  const s=saleNormalize(value);
@@ -28,6 +29,7 @@ export function reconcileSaleLeads(dashboard:SaleDashboard,snapshot:LeadSnapshot
  const leads=(dashboard.leads||[]).map(normalizeSaleLead),seen=new Set<string>();
  const groups=new Map<string,SheetLead[]>();for(const row of snapshot.items){const key=sourceKey(row);groups.set(key,[...(groups.get(key)||[]),row]);}
  for(const [key,rows] of groups){
+  if(dashboard._salePurgedSources?.includes(key))continue;
   const candidates=leads.filter(l=>l._sheet?.key===key),used=new Set<string>(),matches=new Map<SheetLead,SaleLead>();
   for(const row of rows){const match=candidates.find(l=>!used.has(l.id)&&l._sheet?.fingerprint===fingerprint(row));if(match){matches.set(row,match);used.add(match.id);}}
   const remainingRows=rows.filter(row=>!matches.has(row)),remainingLeads=candidates.filter(l=>!used.has(l.id));

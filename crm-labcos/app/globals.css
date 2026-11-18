@@ -339,3 +339,5 @@ h1,h2,h3,p { margin-top:0; }
 @container sale-list (max-width:650px){.november-table tbody tr{grid-template-columns:repeat(2,minmax(0,1fr))}.november-table td:nth-child(3),.november-table td:nth-child(4),.november-table td:nth-child(10),.november-table td:nth-child(11){grid-column:1/-1}}
 
 .sale-trash-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:16px 0}.sale-trash-toolbar span{font-size:12px;color:#8b7783}.sale-trash-toolbar [aria-pressed=true]{background:#fff0f2;border-color:#edbfc7;color:#af5365}.sale-delete-button{color:#b64c62!important;border-color:#edc4cd!important}.sale-delete-button:hover{background:#fff1f4}.sale-record-tabs[hidden]{display:none}
+
+.sale-purge-warning{padding:16px 24px;font-size:13px;line-height:1.7;color:#6c5865}.sale-purge-warning label{display:flex;flex-direction:column;gap:8px;margin-top:18px;font-size:12px;font-weight:600}.sale-purge-warning input{border:1px solid #e1c6cc;border-radius:8px;padding:11px;background:white}.sale-purge-confirm{background:#bd405a;color:white}.sale-purge-confirm:disabled{opacity:.45;cursor:not-allowed}

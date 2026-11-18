@@ -3,7 +3,7 @@ import {getChatGPTUser} from '../../chatgpt-auth';
 import {canEditLeads,canDeleteLeads} from '../../access-policy';
 import {transactPrivate} from '../../../lib/private-store';
 import {notifyZaloNewLead} from '../../../lib/zalo-lead-notify';
-import {readSaleWorkspace,normalizeSaleLead,validateSaleFields,updateSaleLead,saleDashboardPath,emptySaleDashboard,type SaleDashboard} from '../../../lib/sale-leads';
+import {salePurgeKey,readSaleWorkspace,normalizeSaleLead,validateSaleFields,updateSaleLead,saleDashboardPath,emptySaleDashboard,type SaleDashboard} from '../../../lib/sale-leads';
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
 const headers={'Cache-Control':'private, no-store'};
@@ -18,9 +18,9 @@ async function mutate(request:Request,method:'POST'|'PATCH'|'DELETE'){
  try{
   const raw=await request.text();if(raw.length>128000)throw new Error('INPUT');const input=JSON.parse(raw) as Record<string,unknown>;if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('INPUT');
   if(typeof input.id!=='string'||input.id.length>180||!input.id||method==='POST'&&!/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(input.id)||method!=='POST'&&typeof input.revision!=='string')throw new Error('INPUT');
-  if(input.action!==undefined&&!['care','restore','archive','delete','undelete'].includes(input.action as string))throw new Error('INPUT');
-  if(['archive','delete'].includes(input.action as string)&&method!=='DELETE'||['care','restore','undelete'].includes(input.action as string)&&method!=='PATCH')throw new Error('INPUT');
-  if(['delete','undelete'].includes(input.action as string)&&!canDeleteLeads(user.role))return Response.json({error:'Chỉ Quản trị được xóa hoặc khôi phục lead đã xóa.'},{status:403,headers});
+  if(input.action!==undefined&&!['care','restore','archive','delete','undelete','purge'].includes(input.action as string))throw new Error('INPUT');
+  if(['archive','delete','purge'].includes(input.action as string)&&method!=='DELETE'||['care','restore','undelete'].includes(input.action as string)&&method!=='PATCH')throw new Error('INPUT');
+  if(['delete','undelete','purge'].includes(input.action as string)&&!canDeleteLeads(user.role))return Response.json({error:'Chỉ Quản trị được xóa hoặc khôi phục lead đã xóa.'},{status:403,headers});
   await readSaleWorkspace();
   const fields=method==='POST'?validateSaleFields(input):null;
   const at=new Date().toISOString();
@@ -29,11 +29,17 @@ async function mutate(request:Request,method:'POST'|'PATCH'|'DELETE'){
    created=false;
    dashboard.leads=(dashboard.leads||[]).map(normalizeSaleLead);const lead=dashboard.leads.find(l=>l.id===input.id);
    if(method==='POST'){
+    if(dashboard._salePurgedIds?.includes(salePurgeKey(input.id as string)))throw new Error('CONFLICT');
     if(lead){if(lead.deleted_at)throw new Error('CONFLICT');if(lead.created_by!==user.email)throw new Error('CONFLICT');return dashboard;}
     dashboard.leads.unshift({...fields!,id:input.id as string,revision:randomUUID(),created_at:at,updated_at:at,created_by:user.email,origin:'crm',history:[{id:randomUUID(),at,by:user.email,action:'created'}]});created=true;return dashboard;
    }
-   if(!lead||lead.deleted_at&&input.action!=='undelete')throw new Error('NOT_FOUND');if(lead.revision!==input.revision)throw new Error('CONFLICT');
-   if(input.action==='delete'||input.action==='undelete'){
+   if(!lead||lead.deleted_at&&!['undelete','purge'].includes(input.action as string))throw new Error('NOT_FOUND');if(lead.revision!==input.revision)throw new Error('CONFLICT');
+   if(input.action==='purge'){
+    if(!lead.deleted_at||input.confirmName!==lead.name)throw new Error('PURGE_CONFIRM');
+    dashboard._salePurgedIds=[...new Set([...(dashboard._salePurgedIds||[]),salePurgeKey(lead.id)])];
+    if(lead._sheet)dashboard._salePurgedSources=[...new Set([...(dashboard._salePurgedSources||[]),lead._sheet.key])];
+    dashboard.leads=dashboard.leads.filter(l=>l.id!==lead.id);return dashboard;
+   }else if(input.action==='delete'||input.action==='undelete'){
     if(input.action==='undelete'&&!lead.deleted_at)throw new Error('INPUT');lead.deleted_at=input.action==='delete'?at:null;lead.deleted_by=input.action==='delete'?user.email:null;lead.updated_at=at;lead.revision=randomUUID();lead.history.push({id:randomUUID(),at,by:user.email,action:input.action==='delete'?'trashed':'untrashed'});
    }else if(method==='DELETE'||input.action==='restore'){
     lead.archived_at=method==='DELETE'?at:null;lead.updated_at=at;lead.revision=randomUUID();lead.history.push({id:randomUUID(),at,by:user.email,action:method==='DELETE'?'archived':'restored'});
@@ -49,8 +55,8 @@ async function mutate(request:Request,method:'POST'|'PATCH'|'DELETE'){
    try{zaloNotification=await notifyZaloNewLead(lead);}
    catch{zaloNotification='failed';console.error('ZALO_LEAD_NOTIFY_FAILED',lead.id);}
   }
-  return Response.json({lead,...(method==='POST'?{zaloNotification}:{})},{status:method==='POST'?201:200,headers});
- }catch(error){const code=error instanceof Error?error.message:'';const status=code==='CONFLICT'?409:code==='NOT_FOUND'?404:code==='INPUT'||error instanceof SyntaxError?400:503;return Response.json({error:status===409?'Lead vừa được người khác cập nhật. Tải lại danh sách rồi mở lại lead; nội dung đang nhập được giữ.':status===404?'Không tìm thấy lead.':status===400?'Kiểm tra tên, ngày ghi nhận, giai đoạn, giá trị và nội dung chăm sóc.':'Chưa lưu được thay đổi. Hãy thử lại.'},{status,headers});}
+  return Response.json({lead,...(input.action==='purge'?{purgedId:input.id}:{}),...(method==='POST'?{zaloNotification}:{})},{status:method==='POST'?201:200,headers});
+ }catch(error){const code=error instanceof Error?error.message:'';const status=code==='CONFLICT'?409:code==='NOT_FOUND'?404:code==='INPUT'||code==='PURGE_CONFIRM'||error instanceof SyntaxError?400:503;return Response.json({error:status===409?'Lead vừa được người khác cập nhật. Tải lại danh sách rồi mở lại lead; nội dung đang nhập được giữ.':status===404?'Không tìm thấy lead.':code==='PURGE_CONFIRM'?'Chỉ xóa vĩnh viễn lead trong Thùng rác và cần nhập đúng tên khách hàng.':status===400?'Kiểm tra tên, ngày ghi nhận, giai đoạn, giá trị và nội dung chăm sóc.':'Chưa lưu được thay đổi. Hãy thử lại.'},{status,headers});}
 }
 export const POST=(r:Request)=>mutate(r,'POST');
 export const PATCH=(r:Request)=>mutate(r,'PATCH');
