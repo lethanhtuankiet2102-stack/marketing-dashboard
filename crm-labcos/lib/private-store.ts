@@ -1,4 +1,4 @@
-import { get, put } from '@vercel/blob';
+import { del, get, put } from '@vercel/blob';
 
 export async function readPrivate<T>(path:string,fallback:T):Promise<T> {
   const result=await get(path,{access:'private',useCache:false});
@@ -37,4 +37,18 @@ export async function transactPrivate<T>(path:string,fallback:T,update:(value:T)
     }
   }
   throw new Error('CONFLICT');
+}
+
+
+export async function writePrivateImage(path:string,bytes:Uint8Array<ArrayBuffer>,contentType:string){
+  await put(path,Buffer.from(bytes),{access:'private',addRandomSuffix:false,allowOverwrite:false,contentType});
+}
+
+export async function readPrivateImage(path:string){
+  const result=await get(path,{access:'private',useCache:false});
+  return result?.statusCode===200?result.stream:null;
+}
+
+export async function deletePrivateImage(path:string){
+  await del(path);
 }

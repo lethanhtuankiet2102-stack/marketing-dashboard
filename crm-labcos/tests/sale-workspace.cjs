@@ -2,10 +2,16 @@ const fs=require('fs'),vm=require('vm'),assert=require('assert/strict'),ts=requi
 const root=path.resolve(__dirname,'..');
 function mod(file,mocks={},extra={}){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root,file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,require:n=>mocks[n]||require(n),Error,SyntaxError,Response,Request,URL,Intl,Date,structuredClone,Buffer,process,crypto:require('node:crypto').webcrypto,console,...extra});return exports;}
 const db=new Map(),store={readPrivate:async(p,f)=>structuredClone(db.has(p)?db.get(p):f),transactPrivate:async(p,f,fn)=>{const value=fn(structuredClone(db.has(p)?db.get(p):f));db.set(p,value);return value;}};
+const images=new Map();
+Object.assign(store,{
+ readPrivateImage:async key=>images.get(key),
+ writePrivateImage:async(key,bytes)=>images.set(key,bytes),
+ deletePrivateImage:async key=>images.delete(key)
+});
 const model=mod('app/sale-leads-model.ts'),policy=mod('app/access-policy.ts'),lib=mod('lib/sale-leads.ts',{'./private-store':store,'../app/sale-leads-model':model});
 let user={email:'owner@test.com',role:'owner'};
 const zaloNotifications=[];
-const api=mod('app/api/sale-leads/route.ts',{'../../chatgpt-auth':{getChatGPTUser:async()=>user},'../../access-policy':policy,'../../../lib/private-store':store,'../../../lib/sale-leads':lib,'../../../lib/zalo-lead-notify':{notifyZaloNewLead:async lead=>{zaloNotifications.push(lead.id);return 'sent';}}});
+const api=mod('app/api/sale-leads/route.ts',{'../../chatgpt-auth':{getChatGPTUser:async()=>user},'../../access-policy':policy,'../../sale-leads-model':model,'../../../lib/private-store':store,'../../../lib/sale-leads':lib,'../../../lib/zalo-lead-notify':{notifyZaloNewLead:async lead=>{zaloNotifications.push(lead.id);return 'sent';}}});
 const legacy={id:'legacy-id',name:'Old CRM lead',company:'Company',phone:'0900000000',source:'Google Ads',status:'interested',value:12000,next_action:'',note:'Existing CRM note',created_at:'2026-08-02T00:00:00Z',updated_at:'2026-08-03T00:00:00Z'};
 const row=(overrides={})=>({id:'sheet-row-5',sheetRow:5,date:'2026-09-01',number:'1',name:'Khách A',phone:'0912345678',status:'Đã liên hệ',sales:'Kimmy',need:'Gia công toner',note:'Zalo OA',...overrides});
 let snapshot={source:'LEAD LIST',fromDate:'2026-07-01',throughDate:'2026-09-02',lastSyncedAt:'2026-09-03T00:00:00Z',items:[row(),row({id:'sheet-row-6',sheetRow:6,date:'2026-09-02',number:'2',note:'Messenger'})]};
@@ -98,6 +104,37 @@ const fields=lead=>Object.fromEntries(Object.keys(model.emptySaleLead()).map(key
  const crmPurgeId=require('crypto').randomUUID(),crmInput={...input,id:crmPurgeId,name:'Disposable purge fixture'};purgeTarget=(await (await api.POST(req(crmInput))).json()).lead;purgeTarget=(await (await api.DELETE(req({id:crmPurgeId,revision:purgeTarget.revision,action:'delete'}))).json()).lead;assert.equal((await api.DELETE(req({id:crmPurgeId,revision:purgeTarget.revision,action:'purge',confirmName:purgeTarget.name}))).status,200);assert.equal((await api.POST(req(crmInput))).status,409,'Old POST retry cannot resurrect a purged lead');
  console.log('PASS: owner-only permanent purge, trash/name/revision checks, physical removal of profile/history, no restore, source suppression, replay protection and unchanged Zalo behavior.');
  const nav=fs.readFileSync(path.join(root,'app/workspace.tsx'),'utf8');assert.ok(nav.includes("id:'sale', label:'Sale'"));const marketing=nav.split('const marketingTabs =')[1].split(';')[0];assert.ok(!marketing.includes('list-lead'));assert.ok(nav.includes("tab==='leads'&&<SaleLeadsPanel"));assert.equal(policy.canAccessTab('sale_oem','sale'),true);assert.equal(policy.canAccessTab('order','sale'),false);
+ // QR images are private attachments, not embedded lead fields or trusted paths from the client.
+ const qrId=require('node:crypto').randomUUID();
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0F8AAAAASUVORK5CYII=','base64');
+ const qrData={id:qrId,name:'QR Customer',date:'2026-11-18',contact_method:'qr'};
+ const upload=(method,fields,bytes=png,mime='image/png')=>{
+  const body=new FormData();body.append('lead',JSON.stringify(fields));body.append('qr',new Blob([bytes],{type:mime}),'qr.png');
+  return api[method](new Request('https://crm.test/api/sale-leads',{method,headers:{origin:'https://crm.test'},body}));
+ };
+ const getQr=()=>api.GET(new Request('https://crm.test/api/sale-leads?qr='+qrId));
+ user={role:'owner',email:'owner@crm.test'};
+ assert.equal((await api.POST(req({...qrData,contact_qr:{path:'fake',type:'image/png'}}))).status,400);
+ assert.equal((await upload('POST',qrData,'<svg/>','image/svg+xml')).status,400);
+ assert.equal((await upload('POST',qrData,'not a picture')).status,400);
+ assert.equal((await upload('POST',qrData,Buffer.alloc(2*1024*1024+1))).status,400);
+ let savedQr=await upload('POST',qrData);assert.equal(savedQr.status,201);let qrLead=(await savedQr.json()).lead;assert.equal(qrLead.contact_method,'qr');assert.equal(qrLead.phone,'');
+ let imageResponse=await getQr();assert.equal(imageResponse.headers.get('content-type'),'image/png');assert.equal(imageResponse.headers.get('cache-control'),'private, no-store');assert.equal(imageResponse.headers.get('x-content-type-options'),'nosniff');assert.ok(png.equals(Buffer.from(await imageResponse.arrayBuffer())));
+ user=null;assert.equal((await getQr()).status,401);
+ user={role:'order',email:'order@crm.test'};assert.equal((await getQr()).status,403);
+ user={role:'viewer',email:'viewer@crm.test'};assert.equal((await upload('PATCH',{...qrData,revision:qrLead.revision})).status,403);
+ user={role:'owner',email:'owner@crm.test'};
+ let revision=qrLead.revision,previous=qrLead.contact_qr.path;
+ savedQr=await api.PATCH(req({id:qrId,revision,name:'Updated QR Customer'}));assert.equal(savedQr.status,200);qrLead=(await savedQr.json()).lead;assert.equal(qrLead.contact_qr.path,previous);
+ assert.equal((await upload('PATCH',{...qrData,revision})).status,409);assert.equal(images.size,1);
+ savedQr=await upload('PATCH',{...qrData,revision:qrLead.revision,action:'care',careNote:'Đã liên hệ'});assert.equal(savedQr.status,200);qrLead=(await savedQr.json()).lead;assert.notEqual(qrLead.contact_qr.path,previous);assert.ok(!images.has(previous));
+ savedQr=await api.PATCH(req({id:qrId,revision:qrLead.revision,contact_method:'phone',phone:'0901234567'}));assert.equal(savedQr.status,200);qrLead=(await savedQr.json()).lead;assert.equal(qrLead.phone,'0901234567');assert.equal(qrLead.contact_qr,undefined);assert.equal(images.size,0);assert.equal((await getQr()).status,404);
+ savedQr=await upload('PATCH',{...qrData,revision:qrLead.revision});qrLead=(await savedQr.json()).lead;assert.equal(qrLead.contact_method,'qr');
+ savedQr=await api.DELETE(req({id:qrId,revision:qrLead.revision,action:'delete'}));qrLead=(await savedQr.json()).lead;
+ user={role:'viewer',email:'viewer@crm.test'};assert.equal((await getQr()).status,404);
+ user={role:'owner',email:'owner@crm.test'};assert.equal((await getQr()).status,200);
+ assert.equal((await api.DELETE(req({id:qrId,revision:qrLead.revision,action:'purge',confirmName:qrLead.name}))).status,200);assert.equal(images.size,0);assert.equal((await getQr()).status,404);
+ console.log('PASS: private QR upload/read, content and size validation, roles, revision checks, replacement, phone switch and purge.');
  console.log('PASS: unified CRM/Sheet lead migration, row insertion and stable IDs, same phone across dates, source override protection, care history/audit, optimistic conflicts, archive/restore, removed source rows, new lead idempotency, role/origin/validation, report channels, filters and Sale navigation.');
 })().catch(error=>{console.error(error);process.exit(1)});
 
