@@ -50,17 +50,17 @@ export function reconcileSaleLeads(dashboard:SaleDashboard,snapshot:LeadSnapshot
  for(const lead of leads)if(lead._sheet&&!seen.has(lead.id))lead.sourceMissing=true;
  return {...dashboard,leads,_saleSourceVersion:hash(snapshot.items),_saleSourceSyncedAt:snapshot.lastSyncedAt||dashboard._saleSourceSyncedAt};
 }
-export async function readSaleWorkspace(snapshotInput?:LeadSnapshot|null){
+export async function readSaleWorkspace(snapshotInput?:LeadSnapshot|null,includeDeleted=false){
  const [dashboard,snapshot]=await Promise.all([readPrivate<SaleDashboard>(saleDashboardPath,emptySaleDashboard),snapshotInput===undefined?readPrivate<LeadSnapshot|null>('labcos/list-leads.json',null):Promise.resolve(snapshotInput)]);
  if(snapshot&&dashboard._saleSourceVersion!==hash(snapshot.items)){
   if(!dashboard._saleSourceVersion)await transactPrivate<SaleDashboard|null>('labcos/dashboard-before-sale-merge.json',null,saved=>saved??dashboard);
   const next=await transactPrivate<SaleDashboard>(saleDashboardPath,emptySaleDashboard,current=>current._saleSourceVersion===hash(snapshot.items)||current._saleSourceSyncedAt&&snapshot.lastSyncedAt&&Date.parse(current._saleSourceSyncedAt)>Date.parse(snapshot.lastSyncedAt)?current:reconcileSaleLeads(current,snapshot));
-  return {dashboard:{...next,leads:next.leads.map(normalizeSaleLead)},snapshot};
+  return {dashboard:{...next,leads:next.leads.map(normalizeSaleLead).filter(l=>includeDeleted||!l.deleted_at)},snapshot};
  }
- return {dashboard:{...dashboard,leads:(dashboard.leads||[]).map(normalizeSaleLead)},snapshot};
+ return {dashboard:{...dashboard,leads:(dashboard.leads||[]).map(normalizeSaleLead).filter(l=>includeDeleted||!l.deleted_at)},snapshot};
 }
 export function saleListView(dashboard:SaleDashboard,snapshot:LeadSnapshot|null){
- const items=dashboard.leads.filter(l=>!l.archived_at).map(l=>({id:l.id,sheetRow:l._sheet?.row||0,date:l.date,number:'',name:l.name,phone:l.phone,status:l.status,sales:l.sales,need:l.need,note:l.note,channel:l.channel}));
+ const items=dashboard.leads.filter(l=>!l.archived_at&&!l.deleted_at).map(l=>({id:l.id,sheetRow:l._sheet?.row||0,date:l.date,number:'',name:l.name,phone:l.phone,status:l.status,sales:l.sales,need:l.need,note:l.note,channel:l.channel}));
  return {...snapshot,source:'Sale / Khách hàng & Lead',fromDate:items.reduce((d,l)=>l.date&&l.date<d?l.date:d,snapshot?.fromDate||saleToday()),throughDate:saleToday(),crmUnified:true,items};
 }
 const validDate=(v:string)=>!v||/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;

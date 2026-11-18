@@ -12,3 +12,5 @@ export function canAccessTab(role:UserRole|null,tab:string){
 }
 export function defaultTab(role:UserRole){return role==='sale_oem'?'leads':role==='order'?'designer':'overview';}
 export function designerLanding(role:UserRole|null){return role==='designer'||role==='sale_oem'?'designer':'designer-performance';}
+
+export function canDeleteLeads(role:UserRole|null){return role==='owner';}

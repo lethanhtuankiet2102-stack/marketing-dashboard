@@ -17,7 +17,7 @@ function atMonthEnd(lead:SaleLead,end:string){const fields={...lead};if(fields.a
 export function aggregateMonthly(items:SaleLead[],month:string,person:string):MonthlyAutomatic{
  const start=month+'-01',end=month+'-31',inMonth=(day:string)=>!!day&&day>=start&&day<=end;
  const result:MonthlyAutomatic={version:1,contacted:{old:0,fresh:0},quality:{old:0,fresh:0},newLeads:0,undatedContacts:0,groupB:[]};
- for(const raw of items){const lead={...atMonthEnd(raw,end),date:raw.date,contact_date:raw.contact_date};if(monthlyPerson(lead.sales||'Chưa phân công')!==monthlyPerson(person)||!lead.date||lead.date>end)continue;const cohort:Cohort=lead.date<start?'old':'fresh';const events=(raw.history||[]).filter(h=>h.action==='care'&&inMonth(monthlyDay(h.at)));const contacted=inMonth(lead.contact_date)||events.length>0;
+ for(const raw of items){if(raw.deleted_at)continue;const lead={...atMonthEnd(raw,end),date:raw.date,contact_date:raw.contact_date};if(monthlyPerson(lead.sales||'Chưa phân công')!==monthlyPerson(person)||!lead.date||lead.date>end)continue;const cohort:Cohort=lead.date<start?'old':'fresh';const events=(raw.history||[]).filter(h=>h.action==='care'&&inMonth(monthlyDay(h.at)));const contacted=inMonth(lead.contact_date)||events.length>0;
   if(cohort==='fresh')result.newLeads++;
   if(contacted)result.contacted[cohort]++;
   if(lead.quality_lead&&(cohort==='fresh'||contacted))result.quality[cohort]++;

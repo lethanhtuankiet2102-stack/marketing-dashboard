@@ -1,15 +1,15 @@
 import {randomUUID} from 'node:crypto';
 import {getChatGPTUser} from '../../chatgpt-auth';
-import {canEditLeads} from '../../access-policy';
+import {canEditLeads,canDeleteLeads} from '../../access-policy';
 import {transactPrivate} from '../../../lib/private-store';
 import {notifyZaloNewLead} from '../../../lib/zalo-lead-notify';
 import {readSaleWorkspace,normalizeSaleLead,validateSaleFields,updateSaleLead,saleDashboardPath,emptySaleDashboard,type SaleDashboard} from '../../../lib/sale-leads';
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
 const headers={'Cache-Control':'private, no-store'};
-export async function GET(){
+export async function GET(request?:Request){
  const user=await getChatGPTUser(true);if(!user)return Response.json({error:'Cần đăng nhập.'},{status:401,headers});if(user.role==='order')return Response.json({error:'Không có quyền truy cập Sale.'},{status:403,headers});
- try{const {dashboard,snapshot}=await readSaleWorkspace();return Response.json({items:dashboard.leads,canEdit:canEditLeads(user.role),lastSyncedAt:snapshot?.lastSyncedAt||null},{headers});}
+ try{const trash=!!request&&new URL(request.url).searchParams.get('trash')==='1';if(trash&&!canDeleteLeads(user.role))return Response.json({error:'Chỉ Quản trị được truy cập thùng rác.'},{status:403,headers});const {dashboard,snapshot}=await readSaleWorkspace(undefined,true);return Response.json({items:dashboard.leads.filter(l=>trash?!!l.deleted_at:!l.deleted_at),canEdit:canEditLeads(user.role),canDelete:canDeleteLeads(user.role),trashCount:canDeleteLeads(user.role)?dashboard.leads.filter(l=>l.deleted_at).length:undefined,lastSyncedAt:snapshot?.lastSyncedAt||null},{headers});}
  catch{return Response.json({error:'Chưa tải được danh sách lead. Dữ liệu cũ vẫn được giữ; hãy thử lại.'},{status:503,headers});}
 }
 async function mutate(request:Request,method:'POST'|'PATCH'|'DELETE'){
@@ -18,8 +18,9 @@ async function mutate(request:Request,method:'POST'|'PATCH'|'DELETE'){
  try{
   const raw=await request.text();if(raw.length>128000)throw new Error('INPUT');const input=JSON.parse(raw) as Record<string,unknown>;if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('INPUT');
   if(typeof input.id!=='string'||input.id.length>180||!input.id||method==='POST'&&!/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(input.id)||method!=='POST'&&typeof input.revision!=='string')throw new Error('INPUT');
-  if(input.action!==undefined&&!['care','restore','archive'].includes(input.action as string))throw new Error('INPUT');
-  if(input.action==='archive'&&method!=='DELETE'||['care','restore'].includes(input.action as string)&&method!=='PATCH')throw new Error('INPUT');
+  if(input.action!==undefined&&!['care','restore','archive','delete','undelete'].includes(input.action as string))throw new Error('INPUT');
+  if(['archive','delete'].includes(input.action as string)&&method!=='DELETE'||['care','restore','undelete'].includes(input.action as string)&&method!=='PATCH')throw new Error('INPUT');
+  if(['delete','undelete'].includes(input.action as string)&&!canDeleteLeads(user.role))return Response.json({error:'Chỉ Quản trị được xóa hoặc khôi phục lead đã xóa.'},{status:403,headers});
   await readSaleWorkspace();
   const fields=method==='POST'?validateSaleFields(input):null;
   const at=new Date().toISOString();
@@ -28,11 +29,13 @@ async function mutate(request:Request,method:'POST'|'PATCH'|'DELETE'){
    created=false;
    dashboard.leads=(dashboard.leads||[]).map(normalizeSaleLead);const lead=dashboard.leads.find(l=>l.id===input.id);
    if(method==='POST'){
-    if(lead){if(lead.created_by!==user.email)throw new Error('CONFLICT');return dashboard;}
+    if(lead){if(lead.deleted_at)throw new Error('CONFLICT');if(lead.created_by!==user.email)throw new Error('CONFLICT');return dashboard;}
     dashboard.leads.unshift({...fields!,id:input.id as string,revision:randomUUID(),created_at:at,updated_at:at,created_by:user.email,origin:'crm',history:[{id:randomUUID(),at,by:user.email,action:'created'}]});created=true;return dashboard;
    }
-   if(!lead)throw new Error('NOT_FOUND');if(lead.revision!==input.revision)throw new Error('CONFLICT');
-   if(method==='DELETE'||input.action==='restore'){
+   if(!lead||lead.deleted_at&&input.action!=='undelete')throw new Error('NOT_FOUND');if(lead.revision!==input.revision)throw new Error('CONFLICT');
+   if(input.action==='delete'||input.action==='undelete'){
+    if(input.action==='undelete'&&!lead.deleted_at)throw new Error('INPUT');lead.deleted_at=input.action==='delete'?at:null;lead.deleted_by=input.action==='delete'?user.email:null;lead.updated_at=at;lead.revision=randomUUID();lead.history.push({id:randomUUID(),at,by:user.email,action:input.action==='delete'?'trashed':'untrashed'});
+   }else if(method==='DELETE'||input.action==='restore'){
     lead.archived_at=method==='DELETE'?at:null;lead.updated_at=at;lead.revision=randomUUID();lead.history.push({id:randomUUID(),at,by:user.email,action:method==='DELETE'?'archived':'restored'});
    }else if(input.action==='care'){
     if(typeof input.careNote!=='string'||!input.careNote.trim()||input.careNote.length>4000)throw new Error('INPUT');
@@ -54,3 +57,4 @@ export const PATCH=(r:Request)=>mutate(r,'PATCH');
 export const DELETE=(r:Request)=>mutate(r,'DELETE');
 
 function mergeFields(lead:Record<string,unknown>,input:Record<string,unknown>,interaction?:string){const next:Record<string,unknown>={...lead,...input,...(interaction===undefined?{}:{last_interaction:interaction})};if(input.status_tags===undefined&&input.status!==undefined&&input.status!==lead.status)next.status_tags=[];return next;}
+

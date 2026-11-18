@@ -30,7 +30,7 @@ function fields(input:Record<string,unknown>) {
 export async function GET() {
   const role=await dashboardRole(true);if(!role)return Response.json({error:'Cần đăng nhập.'},{status:401});
   if(role==='order')return Response.json({error:'Không có quyền truy cập.'},{status:403});
-  try {const data=await readPrivate(path,empty);return Response.json({leads:data.leads.filter(row=>!row.archived_at),content:role==='sale_oem'?[]:data.content,role},{headers:{'Cache-Control':'private, no-store'}})}catch(e){console.error('Dashboard read failed',e);return error()}
+  try {const data=await readPrivate(path,empty);return Response.json({leads:data.leads.filter(row=>!row.archived_at&&!row.deleted_at),content:role==='sale_oem'?[]:data.content,role},{headers:{'Cache-Control':'private, no-store'}})}catch(e){console.error('Dashboard read failed',e);return error()}
 }
 export async function POST(request:Request) { return mutate(request,'POST'); }
 export async function PATCH(request:Request) { return mutate(request,'PATCH'); }
